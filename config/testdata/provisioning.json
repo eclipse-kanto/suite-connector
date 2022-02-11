@@ -1,0 +1,41 @@
+{
+    "id": "test:settings",
+    "hub": {
+        "credentials": {
+            "tenantId": "test:settings_hub",
+            "type": "hashed-password",
+            "enabled": true,
+            "secrets": [
+                {
+                    "passwordBase64": "dGVzdA=="
+                }
+            ],
+            "deviceId": "test:settings",
+            "authId": "test:settings_auth",
+            "adapters": [
+                {
+                    "type": "mqtt",
+                    "uri": "mqtts://mqtt.example.com",
+                    "host": "mqtt.example.com",
+                    "port": 8888
+                }
+            ]
+        },
+        "device": {
+            "enabled": true,
+            "deviceId": "test:settings"
+        }
+    },
+    "things": {
+        "thing": {
+            "attributes": {
+                "Info": {
+                    "displayName": "cli",
+                    "gateway": false
+                }
+            },
+            "thingId": "test:settings",
+            "policyId": "test:settings2"
+        }
+    }
+}

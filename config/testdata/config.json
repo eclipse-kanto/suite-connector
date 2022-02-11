@@ -1,0 +1,10 @@
+{
+	"deviceId": "config:deviceId",
+	"policyId": "policyId_config",
+	"cacert": "",
+	"localUsername": "localUsername_config",
+	"localPassword": "localPassword_config",
+	"logFile": "logFile_config",
+	"logLevel": "DEBUG",
+	"Non_Supported": "test"
+}

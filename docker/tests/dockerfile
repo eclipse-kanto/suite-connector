@@ -1,0 +1,13 @@
+FROM golang:alpine AS build-env
+
+ENV CGO_ENABLED 0
+ENV TEST_MQTT_URI tcp://mosquitto:1883
+
+ENV LOCAL_CLIENTID testlocal
+ENV CLOUD_CLIENTID testcloud
+
+RUN go install github.com/ory/go-acc@latest
+
+WORKDIR /src
+
+ENTRYPOINT go-acc ./... --covermode set -o coverage.out -- -v -short --tags=${TAGS}
