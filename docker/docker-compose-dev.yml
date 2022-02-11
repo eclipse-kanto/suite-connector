@@ -1,0 +1,40 @@
+version: "3.8"
+services:
+  mosquitto:
+    image: eclipse-mosquitto
+    networks:
+      - test-net
+      - internet
+    ports:
+      - 1883:1883
+    volumes:
+      - type: bind
+        source: ./mosquitto/config
+        target: /mosquitto/config
+        read_only: false
+
+  tests:
+    environment:
+      - TAGS=${TAGS}
+    build: tests/.
+    networks:
+      - test-net
+      - internet
+    depends_on:
+      - mosquitto
+    volumes:
+      - type: bind
+        source: ../.
+        target: /src
+        read_only: false
+      - type: bind
+        source: ./tests
+        target: /src/target
+        read_only: false
+
+networks:
+  test-net:
+    external: false
+    internal: true
+  internet:
+    external: false
