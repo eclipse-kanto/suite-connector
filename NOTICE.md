@@ -57,11 +57,11 @@ cenkalti/backoff (3.0.0)
 * Project: https://github.com/cenkalti/backoff
 * Source:  https://github.com/cenkalti/backoff/releases/tag/v3.0.0
 
-eclipse/ditto-clients-golang (v0.0.0-20211126080925-0676267c80ac)
+eclipse/ditto-clients-golang (0.0.0-20220225085802-cf3b306280d3)
 
 * License: Eclipse Public License v2.0
 * Project: https://github.com/eclipse/ditto-clients-golang
-* Source:  https://github.com/eclipse/ditto-clients-golang/tree/0676267c80ac5f68495127b66a95535075bd4bd6
+* Source:  https://github.com/eclipse/ditto-clients-golang/tree/cf3b306280d3453473ae8dd65e78f978e2c838ea
 
 eclipse/paho.mqtt.golang (1.3.5)
 
