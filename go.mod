@@ -6,7 +6,7 @@ require (
 	github.com/Jeffail/gabs/v2 v2.6.0
 	github.com/ThreeDotsLabs/watermill v1.1.1
 	github.com/cenkalti/backoff/v3 v3.0.0
-	github.com/eclipse/ditto-clients-golang v0.0.0-20211126080925-0676267c80ac
+	github.com/eclipse/ditto-clients-golang v0.0.0-20220225085802-cf3b306280d3
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/google/go-tpm v0.3.2
