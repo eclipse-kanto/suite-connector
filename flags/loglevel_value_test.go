@@ -13,6 +13,7 @@ package flags_test
 
 import (
 	"flag"
+	"io"
 	"testing"
 
 	"github.com/eclipse-kanto/suite-connector/logger"
@@ -54,6 +55,7 @@ func TestLogLevelVNotSet(t *testing.T) {
 
 func TestLogLevelVInvalid(t *testing.T) {
 	f := flag.NewFlagSet("testing", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
 
 	var s logger.LogLevel
 	v := flags.NewLogLevelV(&s, logger.INFO)

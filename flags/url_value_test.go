@@ -13,6 +13,7 @@ package flags_test
 
 import (
 	"flag"
+	"io"
 	"testing"
 
 	"github.com/eclipse-kanto/suite-connector/flags"
@@ -53,6 +54,7 @@ func TestURLVNotSet(t *testing.T) {
 
 func TestURLVCannotParse(t *testing.T) {
 	f := flag.NewFlagSet("testing", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
 
 	var u string
 	v := flags.NewURLV(&u, "tcp://localhost:1883")
