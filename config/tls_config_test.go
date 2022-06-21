@@ -12,6 +12,7 @@
 package config_test
 
 import (
+	"crypto/tls"
 	"testing"
 
 	"github.com/ThreeDotsLabs/watermill"
@@ -33,6 +34,18 @@ func TestUseCertificateSettingsOK(t *testing.T) {
 	use, _, err = config.NewFSTlsConfig(nil, certFile, keyFile)
 	require.NoError(t, err)
 	assert.True(t, len(use.Certificates) > 0)
+	assert.True(t, len(use.CipherSuites) > 0)
+	// assert that cipher suites identifiers are contained in tls.CipherSuites
+	for _, csID := range use.CipherSuites {
+		assert.True(t, func() bool {
+			for _, cs := range tls.CipherSuites() {
+				if cs.ID == csID {
+					return true
+				}
+			}
+			return false
+		}())
+	}
 
 	logger := watermill.NopLogger{}
 

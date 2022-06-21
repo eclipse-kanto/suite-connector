@@ -61,6 +61,8 @@ func NewHubTLSConfig(settings *TLSSettings, logger watermill.LoggerAdapter) (*tl
 		InsecureSkipVerify: false,
 		RootCAs:            caCertPool,
 		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS13,
+		CipherSuites:       supportedCipherSuites(),
 	}
 
 	return cfg, noClean, nil
@@ -93,6 +95,8 @@ func NewFSTlsConfig(caCertPool *x509.CertPool, certFile, keyFile string) (*tls.C
 		RootCAs:            caCertPool,
 		Certificates:       []tls.Certificate{cert},
 		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS13,
+		CipherSuites:       supportedCipherSuites(),
 	}
 
 	return cfg, noClean, nil
@@ -145,4 +149,13 @@ func NewTPMTlsConfig(
 	}
 
 	return tlsConfig, closer, nil
+}
+
+func supportedCipherSuites() []uint16 {
+	cs := tls.CipherSuites()
+	cid := make([]uint16, len(cs))
+	for i := range cs {
+		cid[i] = cs[i].ID
+	}
+	return cid
 }
