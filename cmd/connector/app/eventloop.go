@@ -106,7 +106,7 @@ func Run(
 	if err != nil {
 		return errors.Wrap(err, "cannot create mosquitto connection")
 	}
-	if err := config.LocalConnect(localClient, logger); err != nil {
+	if err := config.LocalConnect(ctx, localClient, logger); err != nil {
 		return errors.Wrap(err, "cannot connect to mosquitto")
 	}
 

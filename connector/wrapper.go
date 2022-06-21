@@ -17,22 +17,11 @@ import (
 	"sync/atomic"
 
 	"github.com/ThreeDotsLabs/watermill"
-
-	"github.com/pkg/errors"
 )
 
 const (
 	wrapperOpened = iota
 	wrapperClosed
-)
-
-var (
-	// ErrClosed defines a closed publisher or subscriber channel error.
-	ErrClosed = errors.New("publisher/subscriber closed")
-	// ErrTimeout defines a publish timeout error.
-	ErrTimeout = errors.New("publish timeout")
-	// ErrNotConnected defines error on not connected state.
-	ErrNotConnected = errors.New("not connected")
 )
 
 type wrapper struct {

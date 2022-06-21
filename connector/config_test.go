@@ -43,6 +43,10 @@ func TestReconnectIntervalValid(t *testing.T) {
 	config.MinReconnectInterval = 2 * time.Second
 	config.MaxReconnectInterval = 10 * time.Second
 	assert.NoError(t, config.Validate())
+
+	config.MinReconnectInterval = 0
+	config.MaxReconnectInterval = 0
+	assert.NoError(t, config.Validate())
 }
 
 func TestReconnectIntervalInvalid(t *testing.T) {

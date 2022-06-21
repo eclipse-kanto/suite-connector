@@ -15,7 +15,11 @@
 package config_test
 
 import (
+	"context"
+	"os"
+	"syscall"
 	"testing"
+	"time"
 
 	"go.uber.org/goleak"
 
@@ -35,13 +39,17 @@ func TestLocalConnect(t *testing.T) {
 
 	cfg, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
+	cfg.ConnectTimeout = 5 * time.Second
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("connections", logger.DEBUG)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)
 
-	require.NoError(t, config.LocalConnect(client, logger))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	require.NoError(t, config.LocalConnect(ctx, client, logger))
 	defer client.Disconnect()
 }
 
@@ -50,8 +58,9 @@ func TestDummyHonoConnect(t *testing.T) {
 
 	cfg, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
+	cfg.ConnectTimeout = 5 * time.Second
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("connections", logger.DEBUG)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)
@@ -65,6 +74,17 @@ func TestDummyHonoConnect(t *testing.T) {
 	)
 	defer statusPub.Close()
 
-	require.NoError(t, config.HonoConnect(nil, statusPub, client, logger))
+	sigs := make(chan os.Signal, 1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	go func() {
+		<-ctx.Done()
+
+		sigs <- syscall.SIGTERM
+	}()
+
+	require.NoError(t, config.HonoConnect(sigs, statusPub, client, logger))
 	defer client.Disconnect()
 }

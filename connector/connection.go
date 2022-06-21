@@ -192,9 +192,15 @@ func (c *MQTTConnection) ConnectBackoff() backoff.BackOff {
 
 	b.MaxElapsedTime = 0
 	b.RandomizationFactor = 0.25
-	b.InitialInterval = c.config.MinReconnectInterval
-	b.MaxInterval = c.config.MaxReconnectInterval
 	b.Multiplier = c.config.BackoffMultiplier
+
+	if c.config.MinReconnectInterval > 0 {
+		b.InitialInterval = c.config.MinReconnectInterval
+	}
+
+	if c.config.MaxReconnectInterval > 0 {
+		b.MaxInterval = c.config.MaxReconnectInterval
+	}
 
 	return b
 }
