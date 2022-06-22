@@ -13,6 +13,7 @@ package flags_test
 
 import (
 	"flag"
+	"io"
 	"os"
 	"testing"
 
@@ -126,6 +127,8 @@ func TestVersionParse(t *testing.T) {
 
 func TestInvalidFlag(t *testing.T) {
 	f := flag.NewFlagSet("testing", flag.ContinueOnError)
+	f.SetOutput(io.Discard)
+
 	cmd := new(config.Settings)
 	flags.Add(f, cmd)
 

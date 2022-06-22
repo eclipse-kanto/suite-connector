@@ -88,9 +88,13 @@ func TestLogInheritance(t *testing.T) {
 	l1.Warn("Simple warning", nil, nil)
 	l1.Warn("Simple warning", errors.New("simple warning"), nil)
 
+	p := Point{X: 1, Y: 2}
 	b2 := new(bytes.Buffer)
 	l2 := logger.NewLogger(log.New(b2, "[log] ", log.Lmsgprefix), logger.INFO)
-	l2.Errorf("Simple message a=%d b=%d c=%d p=(1,2)", 1, 2, 3)
-	l2.Error("Simple message", errors.New("simple test"), nil)
-	l2.Warn("Simple warning", errors.New("simple warning"), nil)
+	l2.Errorf("Simple message a=%d b=%d c=%d p=%v ", 1, 2, 3, p)
+	l2.Errorf("Simple message a=%d b=%d c=%d err=%q p=%v ", 1, 2, 3, "simple test", p)
+	l2.Warnf("Simple warning a=%d b=%d c=%d p=%v ", 1, 2, 3, p)
+	l2.Warnf("Simple warning a=%d b=%d c=%d err=%q p=%v ", 1, 2, 3, "simple warning", p)
+
+	assert.Equal(t, b1.Bytes(), b2.Bytes())
 }

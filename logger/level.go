@@ -43,8 +43,6 @@ func (l LogLevel) Enabled(level LogLevel) bool {
 
 func (l LogLevel) String() string {
 	switch l {
-	case ERROR:
-		return "ERROR"
 	case WARN:
 		return "WARN"
 	case INFO:
@@ -61,8 +59,6 @@ func (l LogLevel) String() string {
 // StringAligned returns the log level as string with padding.
 func (l LogLevel) StringAligned() string {
 	switch l {
-	case ERROR:
-		return "ERROR "
 	case WARN:
 		return "WARN  "
 	case INFO:
