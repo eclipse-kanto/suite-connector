@@ -91,7 +91,7 @@ func (settings *Settings) ValidateStatic() error {
 	}
 
 	if len(settings.CACert) > 0 && !util.FileExists(settings.CACert) {
-		return errors.New("failed to read CA certificate file")
+		return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
 	}
 
 	if len(settings.DeviceIDPattern) > 0 {
@@ -205,6 +205,9 @@ func ApplySettings(
 			routing.SendStatus(routing.StatusProvisioningError, statusPub, logger)
 			return err
 		}
+
+		logger.Infof("Starting with '%s' and '%s':%v",
+			path, provisioningEnabled, settings.HubConnection().AutoProvisioningEnabled)
 	}
 
 	if cleanSession {
