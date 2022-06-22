@@ -12,10 +12,12 @@
 package connector
 
 import (
+	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/tevino/abool/v2"
 
 	"github.com/cenkalti/backoff/v3"
 	"github.com/pkg/errors"
@@ -39,8 +41,6 @@ const (
 const (
 	// TopicEmpty defines empty topic.
 	TopicEmpty = ""
-
-	stopPending = 1
 
 	externalRetrySleep = 5 * time.Second
 )
@@ -81,9 +81,11 @@ func NewMQTTConnection(
 	}
 
 	conn := &MQTTConnection{
-		config:   cfg,
-		logger:   logger,
-		clientID: clientID,
+		config:       cfg,
+		logger:       logger,
+		clientID:     clientID,
+		reconnecting: abool.New(),
+		running:      abool.NewBool(true),
 	}
 
 	conn.initMQTTClient()
@@ -97,7 +99,6 @@ func createClientOptions(config *Configuration, clientID string, cleanSession bo
 		SetCleanSession(cleanSession).
 		AddBroker(config.URL).
 		SetProtocolVersion(4).
-		SetResumeSubs(true).
 		SetOrderMatters(true).
 		SetKeepAlive(config.KeepAliveTimeout).
 		SetConnectTimeout(config.ConnectTimeout).
@@ -170,8 +171,8 @@ type MQTTConnection struct {
 	defHandlerLock sync.Mutex
 	defaultHandler mqtt.MessageHandler
 
-	stopPending  int32
-	reconnecting int32
+	running      *abool.AtomicBool
+	reconnecting *abool.AtomicBool
 	stopGroup    sync.WaitGroup
 }
 
@@ -181,7 +182,7 @@ func (c *MQTTConnection) isConnected() bool {
 
 // Connect opens the connection.
 func (c *MQTTConnection) Connect() ConnectFuture {
-	atomic.StoreInt32(&c.stopPending, 0)
+	c.running.Set()
 
 	return c.mqttClient.Connect().(*mqtt.ConnectToken)
 }
@@ -211,18 +212,20 @@ func (c *MQTTConnection) ClientID() string {
 
 // Disconnect closes the connection.
 func (c *MQTTConnection) Disconnect() {
-	atomic.StoreInt32(&c.stopPending, stopPending)
-	c.stopGroup.Wait()
-
 	fireDisconnect := c.mqttClient.IsConnected()
-	c.mqttClient.Disconnect(disconnectQuiesce)
+
+	if c.running.SetToIf(true, false) {
+		c.stopGroup.Wait()
+
+		c.mqttClient.Disconnect(disconnectQuiesce)
+	}
 
 	if fireDisconnect {
 		c.fireConnectionEvent(false, nil)
 
 		c.logger.Info("Connection was closed", watermill.LogFields{
-			"mqtt_url": c.config.URL,
-			"clientid": c.clientID,
+			"mqtt_url":  c.config.URL,
+			"client_id": c.clientID,
 		})
 	}
 }
@@ -310,12 +313,15 @@ func (c *MQTTConnection) setDefaultHandler(defaultHandler mqtt.MessageHandler) {
 
 func (c *MQTTConnection) onConnected(client mqtt.Client) {
 	logFields := watermill.LogFields{
-		"mqtt_url": c.config.URL,
-		"clientid": c.clientID,
+		"mqtt_url":  c.config.URL,
+		"client_id": c.clientID,
 	}
 	c.logger.Info("Connected", logFields)
 
-	defer c.fireConnectionEvent(true, nil)
+	c.stopGroup.Add(1)
+	defer c.stopGroup.Done()
+
+	var subTokens []*mqtt.SubscribeToken
 
 	c.topics.Range(func(key, value interface{}) bool {
 		sub := value.(*subscriptioninfo)
@@ -327,15 +333,37 @@ func (c *MQTTConnection) onConnected(client mqtt.Client) {
 			return true
 		}
 
-		logFields["qos"] = sub.qos
-		logFields["topics"] = sub.topics
+		subReq := subFilters(sub.qos, sub.topics)
+		logFields["filters"] = subReq
 
 		c.logger.Info("Sending subscribe packet", logFields)
-		token := c.mqttClient.SubscribeMultiple(subFilters(sub.qos, sub.topics), sub.callback)
+		token := c.mqttClient.SubscribeMultiple(subReq, sub.callback)
+		if subToken, ok := token.(*mqtt.SubscribeToken); ok {
+			subTokens = append(subTokens, subToken)
+		}
+		return true
+	})
+
+	c.waitForSubscribeTokens(subTokens)
+
+	c.fireConnectionEvent(true, nil)
+}
+
+func (c *MQTTConnection) waitForSubscribeTokens(tokens []*mqtt.SubscribeToken) {
+	logFields := watermill.LogFields{
+		"mqtt_url":  c.config.URL,
+		"client_id": c.clientID,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+
+	for _, token := range tokens {
+		logFields["filters"] = token.Result()
 
 		select {
-		case <-time.After(3 * time.Second):
-			c.logger.Info("Subscribe packet sent", logFields)
+		case <-ctx.Done():
+			c.logger.Info("Subscribe packet processed", logFields)
 
 		case <-token.Done():
 			if err := token.Error(); err != nil {
@@ -344,15 +372,13 @@ func (c *MQTTConnection) onConnected(client mqtt.Client) {
 				c.logger.Info("Subscription done", logFields)
 			}
 		}
-
-		return true
-	})
+	}
 }
 
 func (c *MQTTConnection) onConnectionLost(client mqtt.Client, err error) {
 	logFields := watermill.LogFields{
-		"mqtt_url": c.config.URL,
-		"clientid": c.clientID,
+		"mqtt_url":  c.config.URL,
+		"client_id": c.clientID,
 	}
 
 	c.logger.Error("Connection to mqtt lost", err, logFields)
@@ -360,8 +386,8 @@ func (c *MQTTConnection) onConnectionLost(client mqtt.Client, err error) {
 	c.fireConnectionEvent(false, err)
 
 	if c.config.ExternalReconnect {
-		if atomic.CompareAndSwapInt32(&c.reconnecting, 0, 1) {
-			defer atomic.StoreInt32(&c.reconnecting, 0)
+		if c.reconnecting.SetToIf(false, true) {
+			defer c.reconnecting.UnSet()
 
 			c.externalReconnect(client)
 		}
@@ -374,10 +400,10 @@ func (c *MQTTConnection) onDefaultHandlerWrapper(client mqtt.Client, msg mqtt.Me
 		handlerRef(client, msg)
 	} else {
 		logFields := watermill.LogFields{
-			"mqtt_url": c.config.URL,
-			"clientid": c.clientID,
-			"topic":    msg.Topic(),
-			"message":  string(msg.Payload()),
+			"mqtt_url":  c.config.URL,
+			"client_id": c.clientID,
+			"topic":     msg.Topic(),
+			"message":   string(msg.Payload()),
 		}
 
 		c.logger.Error("Message not routed", nil, logFields)
@@ -398,10 +424,10 @@ func (c *MQTTConnection) subscribe(callback mqtt.MessageHandler, qos Qos, topics
 
 	if c.mqttClient.IsConnectionOpen() {
 		logFields := watermill.LogFields{
-			"mqtt_url": c.config.URL,
-			"clientid": c.clientID,
-			"qos":      qos,
-			"topics":   topics,
+			"mqtt_url":  c.config.URL,
+			"client_id": c.clientID,
+			"qos":       qos,
+			"topics":    topics,
 		}
 		c.logger.Info("Sending subscribe packet", logFields)
 		c.mqttClient.SubscribeMultiple(subFilters(qos, topics), callback)
@@ -430,11 +456,11 @@ func (c *MQTTConnection) unsubscribe(id string, autoDelete bool) {
 
 	sub.disposed = true
 
-	if autoDelete {
+	if autoDelete && c.mqttClient.IsConnectionOpen() {
 		logFields := watermill.LogFields{
-			"mqtt_url": c.config.URL,
-			"clientid": c.clientID,
-			"topics":   sub.topics,
+			"mqtt_url":  c.config.URL,
+			"client_id": c.clientID,
+			"topics":    sub.topics,
 		}
 		c.logger.Info("Sending unsubscribe packet", logFields)
 		c.mqttClient.Unsubscribe(sub.topics...)
@@ -447,8 +473,8 @@ func (c *MQTTConnection) unsubscribe(id string, autoDelete bool) {
 
 func (c *MQTTConnection) externalReconnect(client mqtt.Client) {
 	logFields := watermill.LogFields{
-		"mqtt_url": c.config.URL,
-		"clientid": c.clientID,
+		"mqtt_url":  c.config.URL,
+		"client_id": c.clientID,
 	}
 
 	c.stopGroup.Add(1)
@@ -458,7 +484,7 @@ func (c *MQTTConnection) externalReconnect(client mqtt.Client) {
 	b.Reset()
 
 	for {
-		if atomic.LoadInt32(&c.stopPending) == stopPending {
+		if c.running.IsNotSet() {
 			return
 		}
 
@@ -478,7 +504,7 @@ func (c *MQTTConnection) externalReconnect(client mqtt.Client) {
 		for i := 0; i < spinCount; i++ {
 			time.Sleep(externalRetrySleep)
 
-			if atomic.LoadInt32(&c.stopPending) == stopPending {
+			if c.running.IsNotSet() {
 				return
 			}
 		}

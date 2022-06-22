@@ -12,7 +12,7 @@
 package connector
 
 import (
-	"sync/atomic"
+	"github.com/tevino/abool/v2"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 )
@@ -35,19 +35,19 @@ func NullPublisher() message.Publisher {
 type errpublisher struct {
 	err error
 
-	closed int32
+	closed *abool.AtomicBool
 }
 
 // Publish handles publishing the messages per topic.
 func (p *errpublisher) Publish(topic string, msgs ...*message.Message) error {
-	if atomic.LoadInt32(&p.closed) == wrapperClosed {
+	if p.closed.IsSet() {
 		return ErrClosed
 	}
 	return p.err
 }
 
 func (p *errpublisher) Close() error {
-	if atomic.CompareAndSwapInt32(&p.closed, wrapperOpened, wrapperClosed) {
+	if p.closed.SetToIf(false, true) {
 		return nil
 	}
 	return ErrClosed
@@ -56,6 +56,7 @@ func (p *errpublisher) Close() error {
 // NewErrPublisher creates publisher that fails on every publish with specified error
 func NewErrPublisher(err error) message.Publisher {
 	return &errpublisher{
-		err: err,
+		err:    err,
+		closed: abool.New(),
 	}
 }

@@ -18,41 +18,46 @@ import (
 
 // SubscriptionManager is responsible for subscriptions management.
 type SubscriptionManager interface {
-	// Add adds a subscription for the provided topic.
-	Add(topic string)
+	// Add adds a subscription for the provided topic. Returns true if it doesn't exist and was successfully subscribed.
+	Add(topic string) bool
 
-	// Remove removes a subscription for the provided topic.
-	Remove(topic string)
+	// Remove removes a subscription for the provided topic. Returns true if it does exist and was successfully unsubscribed.
+	Remove(topic string) bool
 
 	// ForwardTo specifies the connection to which should be the messages forwarded.
 	ForwardTo(conn *MQTTConnection)
 }
 
-type subscriptionmanager struct {
+type subscriptionManager struct {
 	topics sync.Map
 
 	conn atomic.Value
 }
 
-func (m *subscriptionmanager) Add(topic string) {
+func (m *subscriptionManager) Add(topic string) bool {
 	if _, ok := m.topics.LoadOrStore(topic, true); !ok {
 		if connRef := m.conn.Load(); connRef != nil {
 			conn := connRef.(*MQTTConnection)
 			conn.subscribe(nil, QosAtMostOnce, topic)
+			return true
 		}
+
 	}
+	return false
 }
 
-func (m *subscriptionmanager) Remove(topic string) {
+func (m *subscriptionManager) Remove(topic string) bool {
 	if _, ok := m.topics.LoadAndDelete(topic); ok {
 		if connRef := m.conn.Load(); connRef != nil {
 			conn := connRef.(*MQTTConnection)
 			conn.unsubscribe(topic, true)
+			return true
 		}
 	}
+	return false
 }
 
-func (m *subscriptionmanager) ForwardTo(conn *MQTTConnection) {
+func (m *subscriptionManager) ForwardTo(conn *MQTTConnection) {
 	m.conn.Store(conn)
 
 	m.topics.Range(func(key, value interface{}) bool {
@@ -64,5 +69,5 @@ func (m *subscriptionmanager) ForwardTo(conn *MQTTConnection) {
 
 // NewSubscriptionManager creates subscriptions manager.
 func NewSubscriptionManager() SubscriptionManager {
-	return new(subscriptionmanager)
+	return new(subscriptionManager)
 }

@@ -123,6 +123,18 @@ natefinch/lumberjack (2.0.0)
 * Project: https://github.com/natefinch/lumberjack
 * Source:  https://github.com/natefinch/lumberjack/releases/tag/v2.0.0
 
+tevino/abool (2.0.1)
+
+* License: MIT License
+* Project: https://github.com/tevino/abool
+* Source:  https://github.com/tevino/abool/releases/tag/v2.0.1
+
+imdario/mergo (0.3.12)
+
+* License: BSD 3-Clause "New" or "Revised" License
+* Project: https://github.com/imdario/mergo
+* Source:  https://github.com/imdario/mergo/releases/tag/0.3.12
+
 google/go-tpm (0.3.2)
 
 * License: Apache License 2.0
@@ -140,12 +152,6 @@ golang.org/x/sys (0.0.0-20210630005230-0f9fa26af87c)
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/sys
 * Source:  https://github.com/golang/sys/tree/0f9fa26af87c481a6877a4ca1330699ba9a30673
-
-imdario/mergo (0.3.12)
-
-* License: BSD 3-Clause "New" or "Revised" License
-* Project: https://github.com/imdario/mergo
-* Source:  https://github.com/imdario/mergo/releases/tag/0.3.12
 
 golang.org/x/time (v0.0.0-20190308202827-9d24e82272b4)
 
