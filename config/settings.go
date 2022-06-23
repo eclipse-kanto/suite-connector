@@ -127,10 +127,11 @@ func DefaultSettings() *Settings {
 			LocalAddress: "tcp://localhost:1883",
 		},
 		LogSettings: logger.LogSettings{
-			LogFile:      "log/suite-connector.log",
-			LogLevel:     logger.INFO,
-			LogFileSize:  2,
-			LogFileCount: 5,
+			LogFile:       "log/suite-connector.log",
+			LogLevel:      logger.INFO,
+			LogFileSize:   2,
+			LogFileCount:  5,
+			LogFileMaxAge: 28,
 		},
 		ProvisioningFile: "provisioning.json",
 	}
