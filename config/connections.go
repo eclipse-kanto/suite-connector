@@ -286,19 +286,25 @@ func NewOnlineHonoPub(logger watermill.LoggerAdapter, honoClient *conn.MQTTConne
 	return conn.NewOnlinePublisher(honoClient, conn.QosAtLeastOnce, ackTimeout, logger, nil)
 }
 
-// LocalConnect connects to the local client.
-func LocalConnect(localClient *conn.MQTTConnection, logger watermill.LoggerAdapter) error {
-	b := backoff.NewConstantBackOff(5 * time.Second)
-	ticker := backoff.NewTicker(b)
-	defer ticker.Stop()
+// LocalConnect connects to the local broker.
+func LocalConnect(ctx context.Context,
+	localClient *conn.MQTTConnection,
+	logger watermill.LoggerAdapter,
+) error {
+	logMessage := true
+
+	logFields := watermill.LogFields{
+		"mqtt_url": localClient.URL(),
+		"clientid": localClient.ClientID(),
+	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigs)
 
-	logMessage := true
+	b := backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), ctx)
 
-	for range ticker.C {
+	for {
 		future := localClient.Connect()
 
 		select {
@@ -308,24 +314,31 @@ func LocalConnect(localClient *conn.MQTTConnection, logger watermill.LoggerAdapt
 				return nil
 			}
 
-			if _, retry := routing.StatusCause(err); !retry {
-				return err
-			}
-
 			if logMessage {
 				logMessage = false
-				logger.Error("Cannot connect to local broker", err, nil)
+				logger.Error("Cannot connect to local broker", err, logFields)
 			}
 
 		case <-sigs:
-			return errors.New("connect to local broker cancelled by signal")
+			return context.Canceled
+		}
+
+		waitTime := b.NextBackOff()
+		if waitTime == backoff.Stop {
+			return context.Canceled
+		}
+
+		select {
+		case <-sigs:
+			return context.Canceled
+
+		case <-time.After(waitTime):
+			//go on
 		}
 	}
-
-	return nil
 }
 
-// HonoConnect connects to the Hono client.
+// HonoConnect connects to the Hub.
 func HonoConnect(sigs <-chan os.Signal,
 	statusPub message.Publisher,
 	honoClient *conn.MQTTConnection,
@@ -364,7 +377,7 @@ func HonoConnect(sigs <-chan os.Signal,
 		waitTime := b.NextBackOff()
 		if waitTime == backoff.Stop {
 			logger.Error("Reconnect stopped", nil, logFields)
-			return nil
+			return context.Canceled
 		}
 
 		logger.Debug(fmt.Sprintf("Reconnect after %v", waitTime.Round(time.Second)), logFields)

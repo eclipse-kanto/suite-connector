@@ -44,8 +44,8 @@ var loggerPool = sync.Pool{
 	},
 }
 
-type loggerext struct {
-	logger *log.Logger
+type loggerExt struct {
+	exporter Exporter
 
 	level  LogLevel
 	fields watermill.LogFields
@@ -53,13 +53,18 @@ type loggerext struct {
 
 // NewLogger creates a Logger instance.
 func NewLogger(logger *log.Logger, level LogLevel) Logger {
-	return &loggerext{
-		logger: logger,
-		level:  level,
+	return NewLoggerWithExporter(newStdExporter(logger), level)
+}
+
+// NewLoggerWithExporter creates a Logger instance with specified exporter.
+func NewLoggerWithExporter(exporter Exporter, level LogLevel) Logger {
+	return &loggerExt{
+		exporter: exporter,
+		level:    level,
 	}
 }
 
-func (l *loggerext) Error(msg string, err error, fields watermill.LogFields) {
+func (l *loggerExt) Error(msg string, err error, fields watermill.LogFields) {
 	if l.level.Enabled(ERROR) {
 		if err == nil {
 			l.log(ERROR, msg, fields)
@@ -69,13 +74,13 @@ func (l *loggerext) Error(msg string, err error, fields watermill.LogFields) {
 	}
 }
 
-func (l *loggerext) Errorf(format string, a ...interface{}) {
+func (l *loggerExt) Errorf(format string, a ...interface{}) {
 	if l.level.Enabled(ERROR) {
 		l.log(ERROR, fmt.Sprintf(format, a...), nil)
 	}
 }
 
-func (l *loggerext) Warn(msg string, err error, fields watermill.LogFields) {
+func (l *loggerExt) Warn(msg string, err error, fields watermill.LogFields) {
 	if l.level.Enabled(WARN) {
 		if err == nil {
 			l.log(WARN, msg, fields)
@@ -85,65 +90,65 @@ func (l *loggerext) Warn(msg string, err error, fields watermill.LogFields) {
 	}
 }
 
-func (l *loggerext) Warnf(format string, a ...interface{}) {
+func (l *loggerExt) Warnf(format string, a ...interface{}) {
 	if l.level.Enabled(WARN) {
 		l.log(WARN, fmt.Sprintf(format, a...), nil)
 	}
 }
 
-func (l *loggerext) Info(msg string, fields watermill.LogFields) {
+func (l *loggerExt) Info(msg string, fields watermill.LogFields) {
 	if l.level.Enabled(INFO) {
 		l.log(INFO, msg, fields)
 	}
 }
 
-func (l *loggerext) Infof(format string, a ...interface{}) {
+func (l *loggerExt) Infof(format string, a ...interface{}) {
 	if l.level.Enabled(INFO) {
 		l.log(INFO, fmt.Sprintf(format, a...), nil)
 	}
 }
 
-func (l *loggerext) Debug(msg string, fields watermill.LogFields) {
+func (l *loggerExt) Debug(msg string, fields watermill.LogFields) {
 	if l.IsDebugEnabled() {
 		l.log(DEBUG, msg, fields)
 	}
 }
 
-func (l *loggerext) Debugf(format string, a ...interface{}) {
+func (l *loggerExt) Debugf(format string, a ...interface{}) {
 	if l.IsDebugEnabled() {
 		l.log(DEBUG, fmt.Sprintf(format, a...), nil)
 	}
 }
 
-func (l *loggerext) Trace(msg string, fields watermill.LogFields) {
+func (l *loggerExt) Trace(msg string, fields watermill.LogFields) {
 	if l.IsTraceEnabled() {
 		l.log(TRACE, msg, fields)
 	}
 }
 
-func (l *loggerext) Tracef(format string, a ...interface{}) {
+func (l *loggerExt) Tracef(format string, a ...interface{}) {
 	if l.IsTraceEnabled() {
 		l.log(TRACE, fmt.Sprintf(format, a...), nil)
 	}
 }
 
-func (l *loggerext) With(fields watermill.LogFields) watermill.LoggerAdapter {
-	return &loggerext{
-		logger: l.logger,
-		level:  l.level,
-		fields: l.fields.Add(fields),
+func (l *loggerExt) With(fields watermill.LogFields) watermill.LoggerAdapter {
+	return &loggerExt{
+		exporter: l.exporter,
+		level:    l.level,
+		fields:   l.fields.Add(fields),
 	}
 }
 
-func (l *loggerext) IsDebugEnabled() bool {
+func (l *loggerExt) IsDebugEnabled() bool {
 	return l.level.Enabled(DEBUG)
 }
 
-func (l *loggerext) IsTraceEnabled() bool {
+func (l *loggerExt) IsTraceEnabled() bool {
 	return l.level.Enabled(TRACE)
 }
 
-func (l *loggerext) log(logLevel LogLevel, message string, fields watermill.LogFields) {
+func (l *loggerExt) log(logLevel LogLevel, message string, fields watermill.LogFields) {
 	if l.fields != nil {
 		if fields == nil {
 			fields = l.fields
@@ -153,7 +158,7 @@ func (l *loggerext) log(logLevel LogLevel, message string, fields watermill.LogF
 	}
 
 	if len(fields) == 0 {
-		l.logger.Println(logLevel.StringAligned(), message)
+		l.exporter.Export(logLevel, message)
 	} else {
 		keys := make([]string, 0, len(fields))
 		for field := range fields {
@@ -173,7 +178,7 @@ func (l *loggerext) log(logLevel LogLevel, message string, fields watermill.LogF
 			sb.WriteRune(' ')
 		}
 
-		l.logger.Println(logLevel.StringAligned(), sb.String())
+		l.exporter.Export(logLevel, sb.String())
 	}
 }
 

@@ -111,22 +111,30 @@ func ParseLogLevel(level string) LogLevel {
 
 // LogLevelDecorator is responsible for printing declaration depending on the level.
 type LogLevelDecorator struct {
-	logger *log.Logger
+	exporter Exporter
 
-	level string
+	level LogLevel
 }
 
 // Println prints the values with a new line break.
 func (l LogLevelDecorator) Println(v ...interface{}) {
-	l.logger.Print(l.level, " ", fmt.Sprintln(v...))
+	l.exporter.Export(l.level, fmt.Sprint(v...))
 }
 
 // Printf formats the text while printing the data.
 func (l LogLevelDecorator) Printf(format string, v ...interface{}) {
-	l.logger.Print(l.level, " ", fmt.Sprintf(format, v...))
+	l.exporter.Export(l.level, fmt.Sprintf(format, v...))
 }
 
 // NewLevelDecorator creates decorator for given logger and level instances.
 func NewLevelDecorator(logger *log.Logger, level LogLevel) LogLevelDecorator {
-	return LogLevelDecorator{logger: logger, level: fmt.Sprintf("%-6s", level.String())}
+	return NewLevelDecoratorWithExporter(newStdExporter(logger), level)
+}
+
+// NewLevelDecoratorWithExporter creates log level decorator with specified exporter.
+func NewLevelDecoratorWithExporter(exporter Exporter, level LogLevel) LogLevelDecorator {
+	return LogLevelDecorator{
+		exporter: exporter,
+		level:    level,
+	}
 }

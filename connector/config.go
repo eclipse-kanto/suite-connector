@@ -77,12 +77,12 @@ func (c *Configuration) Validate() error {
 		return errors.Wrap(err, "invalid MQTT url")
 	}
 
-	if c.MinReconnectInterval <= 0 {
-		return errors.New("MinReconnectInterval <= 0")
+	if c.MinReconnectInterval < 0 {
+		return errors.New("MinReconnectInterval < 0")
 	}
 
-	if c.MaxReconnectInterval <= 0 {
-		return errors.New("MaxReconnectInterval <= 0")
+	if c.MaxReconnectInterval < 0 {
+		return errors.New("MaxReconnectInterval < 0")
 	}
 
 	if c.MinReconnectInterval > c.MaxReconnectInterval {
