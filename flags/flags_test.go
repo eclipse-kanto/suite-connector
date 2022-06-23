@@ -66,6 +66,9 @@ func TestFlagsMappings(t *testing.T) {
 		"-logFileSize=10",
 		"-logFileCount=100",
 		"-logFileMaxAge=1000",
+		"-localCACert=Q",
+		"-localCert=R",
+		"-localKey=S",
 	}
 
 	require.NoError(t, flags.Parse(f, args, "0.0.0", os.Exit))
@@ -90,6 +93,9 @@ func TestFlagsMappings(t *testing.T) {
 	assert.EqualValues(t, 0x1234, cmd.TPMHandle)
 	assert.Equal(t, "O", cmd.TPMDevice)
 	assert.Equal(t, "P", cmd.LogFile)
+	assert.Equal(t, "Q", cmd.LocalCACert)
+	assert.Equal(t, "R", cmd.LocalCert)
+	assert.Equal(t, "S", cmd.LocalKey)
 	assert.Equal(t, logger.TRACE, cmd.LogLevel)
 	assert.EqualValues(t, 10, cmd.LogFileSize)
 	assert.EqualValues(t, 100, cmd.LogFileCount)

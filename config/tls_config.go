@@ -54,7 +54,8 @@ func NewHubTLSConfig(settings *TLSSettings, logger watermill.LoggerAdapter) (*tl
 	}
 
 	if len(settings.Cert) > 0 || len(settings.Key) > 0 {
-		return NewFSTlsConfig(caCertPool, settings.Cert, settings.Key)
+		cfg, err := NewFSTlsConfig(caCertPool, settings.Cert, settings.Key)
+		return cfg, noClean, err
 	}
 
 	cfg := &tls.Config{
@@ -66,6 +67,28 @@ func NewHubTLSConfig(settings *TLSSettings, logger watermill.LoggerAdapter) (*tl
 	}
 
 	return cfg, noClean, nil
+}
+
+// NewLocalTLSConfig initializes the Local broker TLS.
+func NewLocalTLSConfig(settings *LocalConnectionSettings, logger watermill.LoggerAdapter) (*tls.Config, error) {
+	caCertPool, err := NewCAPool(settings.LocalCACert)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(settings.LocalCert) > 0 || len(settings.LocalKey) > 0 {
+		return NewFSTlsConfig(caCertPool, settings.LocalCert, settings.LocalKey)
+	}
+
+	cfg := &tls.Config{
+		InsecureSkipVerify: false,
+		RootCAs:            caCertPool,
+		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS13,
+		CipherSuites:       supportedCipherSuites(),
+	}
+
+	return cfg, nil
 }
 
 // NewCAPool opens a certificates pool.
@@ -84,10 +107,10 @@ func NewCAPool(caFile string) (*x509.CertPool, error) {
 }
 
 // NewFSTlsConfig initializes a file Hub TLS.
-func NewFSTlsConfig(caCertPool *x509.CertPool, certFile, keyFile string) (*tls.Config, Cleaner, error) {
+func NewFSTlsConfig(caCertPool *x509.CertPool, certFile, keyFile string) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to load X509 key pair")
+		return nil, errors.Wrap(err, "failed to load X509 key pair")
 	}
 
 	cfg := &tls.Config{
@@ -99,7 +122,7 @@ func NewFSTlsConfig(caCertPool *x509.CertPool, certFile, keyFile string) (*tls.C
 		CipherSuites:       supportedCipherSuites(),
 	}
 
-	return cfg, noClean, nil
+	return cfg, nil
 }
 
 // NewTPMTlsConfig initializes s TPM Hub TLS.

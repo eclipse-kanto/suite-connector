@@ -97,6 +97,10 @@ type LocalConnectionSettings struct {
 	LocalAddress  string `json:"localAddress"`
 	LocalUsername string `json:"localUsername"`
 	LocalPassword string `json:"localPassword"`
+
+	LocalCACert string `json:"localCACert"`
+	LocalCert   string `json:"localCert"`
+	LocalKey    string `json:"localKey"`
 }
 
 // Validate validates the local connection settings.
@@ -193,6 +197,11 @@ func CreateLocalConnection(
 	settings *LocalConnectionSettings,
 	logger watermill.LoggerAdapter,
 ) (*conn.MQTTConnection, error) {
+	u, err := url.Parse(settings.LocalAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	mosquittoConfig, err := conn.NewMQTTClientConfig(settings.LocalAddress)
 	if err != nil {
 		return nil, err
@@ -221,6 +230,17 @@ func CreateLocalConnection(
 		mosquittoConfig.Credentials.Password = settings.LocalPassword
 	}
 
+	switch u.Scheme {
+	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+		tlsConfig, err := NewLocalTLSConfig(settings, logger)
+		if err != nil {
+			return nil, err
+		}
+		mosquittoConfig.TLSConfig = tlsConfig
+	default:
+		// unsupported
+	}
+
 	return conn.NewMQTTConnection(mosquittoConfig, localClientID, logger)
 }
 
@@ -230,6 +250,11 @@ func CreateCloudConnection(
 	cleanSession bool,
 	logger watermill.LoggerAdapter,
 ) (*conn.MQTTConnection, error) {
+	u, err := url.Parse(settings.LocalAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	mosquittoConfig, err := conn.NewMQTTClientConfig(settings.LocalAddress)
 	if err != nil {
 		return nil, err
@@ -243,6 +268,17 @@ func CreateCloudConnection(
 	if len(settings.LocalUsername) > 0 {
 		mosquittoConfig.Credentials.UserName = settings.LocalUsername
 		mosquittoConfig.Credentials.Password = settings.LocalPassword
+	}
+
+	switch u.Scheme {
+	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+		tlsConfig, err := NewLocalTLSConfig(settings, logger)
+		if err != nil {
+			return nil, err
+		}
+		mosquittoConfig.TLSConfig = tlsConfig
+	default:
+		// unsupported
 	}
 
 	return conn.NewMQTTConnection(mosquittoConfig, cloudClientID, logger)

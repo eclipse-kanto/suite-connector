@@ -27,11 +27,11 @@ func TestUseCertificateSettingsOK(t *testing.T) {
 	certFile := "testdata/certificate.pem"
 	keyFile := "testdata/key.pem"
 
-	use, _, err := config.NewFSTlsConfig(nil, "", "")
+	use, err := config.NewFSTlsConfig(nil, "", "")
 	require.Error(t, err)
 	assert.Nil(t, use)
 
-	use, _, err = config.NewFSTlsConfig(nil, certFile, keyFile)
+	use, err = config.NewFSTlsConfig(nil, certFile, keyFile)
 	require.NoError(t, err)
 	assert.True(t, len(use.Certificates) > 0)
 	assert.True(t, len(use.CipherSuites) > 0)
@@ -89,7 +89,7 @@ func TestUseCertificateSettingsFail(t *testing.T) {
 }
 
 func assertCertError(t *testing.T, useCertificate bool, certFile, keyFile string) {
-	use, _, err := config.NewFSTlsConfig(nil, certFile, keyFile)
+	use, err := config.NewFSTlsConfig(nil, certFile, keyFile)
 	assert.Error(t, err, useCertificate, certFile, keyFile)
 	assert.Nil(t, use)
 }

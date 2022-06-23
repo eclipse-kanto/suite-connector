@@ -149,6 +149,19 @@ func AddLocalBroker(f *flag.FlagSet, settings, def *config.LocalConnectionSettin
 		"localPassword", def.LocalPassword,
 		"Password for authorized local client",
 	)
+
+	f.StringVar(&settings.LocalCACert,
+		"localCACert", def.LocalCACert,
+		"A PEM encoded local broker CA certificates `file`",
+	)
+	f.StringVar(&settings.LocalCert,
+		"localCert", def.LocalCert,
+		"A PEM encoded certificate `file` for local broker",
+	)
+	f.StringVar(&settings.LocalKey,
+		"localKey", def.LocalKey,
+		"A PEM encoded unencrypted private key `file` for local broker",
+	)
 }
 
 // Parse invokes flagset parse and processes the version
