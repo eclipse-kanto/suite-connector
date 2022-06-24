@@ -106,10 +106,7 @@ func TestSetupLogger(t *testing.T) {
 		t.Skip("TEST_MQTT_LOG_LEVEL is set")
 	}
 
-	require.NoError(t, os.Setenv("MQTT_LOG_LEVEL", "DEBUG"))
-	defer func() {
-		require.NoError(t, os.Unsetenv("MQTT_LOG_LEVEL"))
-	}()
+	t.Setenv("MQTT_LOG_LEVEL", "DEBUG")
 
 	defer func() {
 		mqtt.ERROR = mqtt.NOOPLogger{}
