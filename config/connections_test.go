@@ -12,7 +12,6 @@
 package config_test
 
 import (
-	"os"
 	"testing"
 
 	"go.uber.org/goleak"
@@ -67,19 +66,9 @@ func TestCreateHonoClient(t *testing.T) {
 	require.NoError(t, settings.ValidateDynamic())
 	logger := testutil.NewLogger("testing", logger.DEBUG)
 
-	min := os.Getenv("HUB_CONNNECT_INIT")
-	max := os.Getenv("HUB_CONNNECT_MAX")
-	mul := os.Getenv("HUB_CONNNECT_MUL")
-
-	defer func() {
-		assert.NoError(t, os.Setenv("HUB_CONNNECT_INIT", min))
-		assert.NoError(t, os.Setenv("HUB_CONNNECT_MAX", max))
-		assert.NoError(t, os.Setenv("HUB_CONNNECT_MUL", mul))
-	}()
-
-	assert.NoError(t, os.Setenv("HUB_CONNNECT_INIT", "60"))
-	assert.NoError(t, os.Setenv("HUB_CONNNECT_MAX", "120"))
-	assert.NoError(t, os.Setenv("HUB_CONNNECT_MUL", "2.0"))
+	t.Setenv("HUB_CONNECT_INIT", "60")
+	t.Setenv("HUB_CONNECT_MAX", "120")
+	t.Setenv("HUB_CONNECT_MUL", "2.0")
 
 	honoClient, cleanup, err := config.CreateHubConnection(&settings.HubConnectionSettings, false, logger)
 	require.NoError(t, err)
@@ -189,11 +178,7 @@ func TestSetupTracing(t *testing.T) {
 	assert.NotNil(t, router)
 	defer router.Close()
 
-	topic := os.Getenv("TRACE_TOPIC_PREFIX")
-	defer func() {
-		assert.NoError(t, os.Setenv("TRACE_TOPIC_PREFIX", topic))
-	}()
-	assert.NoError(t, os.Setenv("TRACE_TOPIC_PREFIX", "c/"))
+	t.Setenv("TRACE_TOPIC_PREFIX", "c/")
 
 	config.SetupTracing(router, logger)
 }
@@ -213,17 +198,13 @@ func TestHonoPub(t *testing.T) {
 	require.NotNil(t, pub)
 	assert.NoError(t, pub.Close())
 
-	msgRate := os.Getenv("MESSAGE_RATE")
-	defer func() {
-		assert.NoError(t, os.Setenv("MESSAGE_RATE", msgRate))
-	}()
-	assert.NoError(t, os.Setenv("MESSAGE_RATE", "25"))
+	t.Setenv("MESSAGE_RATE", "25")
 
 	pub = config.NewHonoPub(logger, client)
 	require.NotNil(t, pub)
 	assert.NoError(t, pub.Close())
 
-	assert.NoError(t, os.Setenv("MESSAGE_RATE", "-1"))
+	t.Setenv("MESSAGE_RATE", "-1")
 
 	pub = config.NewHonoPub(logger, client)
 	require.NotNil(t, pub)
@@ -245,11 +226,7 @@ func TestOnlineHonoPub(t *testing.T) {
 	require.NotNil(t, pub)
 	assert.NoError(t, pub.Close())
 
-	timeout := os.Getenv("HUB_PUBLISH_ACK_TIMEOUT")
-	defer func() {
-		assert.NoError(t, os.Setenv("HUB_PUBLISH_ACK_TIMEOUT", timeout))
-	}()
-	assert.NoError(t, os.Setenv("HUB_PUBLISH_ACK_TIMEOUT", "10"))
+	t.Setenv("HUB_PUBLISH_ACK_TIMEOUT", "10")
 
 	pub = config.NewOnlineHonoPub(logger, client)
 	require.NotNil(t, pub)
