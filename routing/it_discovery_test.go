@@ -75,7 +75,7 @@ loop:
 		}
 	}
 
+	assert.Contains(t, params, "policyId")
 	assert.Contains(t, params, "deviceId")
 	assert.Contains(t, params, "tenantId")
-	assert.Contains(t, params, "policyId")
 }
