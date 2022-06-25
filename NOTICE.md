@@ -153,6 +153,18 @@ golang.org/x/time (v0.0.0-20190308202827-9d24e82272b4)
 * Project: https://github.com/golang/time
 * Source:  https://github.com/golang/time/tree/9d24e82272b4f38b78bc8cff74fa936d31ccd8ef
 
+golang.org/x/sync (v0.0.0-20210405180319-a5a99cb37ef4)
+
+* License: BSD 3-Clause "New" or "Revised" License
+* Project: https://github.com/golang/sync
+* Source:  https://github.com/golang/sync
+
+golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
+
+* License: BSD 3-Clause "New" or "Revised" License
+* Project: https://github.com/golang/sync
+* Source:  https://github.com/golang/sync
+
 ## Cryptography
 
 Content may contain encryption software. The country in which you are currently
