@@ -197,11 +197,6 @@ func CreateLocalConnection(
 	settings *LocalConnectionSettings,
 	logger watermill.LoggerAdapter,
 ) (*conn.MQTTConnection, error) {
-	u, err := url.Parse(settings.LocalAddress)
-	if err != nil {
-		return nil, err
-	}
-
 	mosquittoConfig, err := conn.NewMQTTClientConfig(settings.LocalAddress)
 	if err != nil {
 		return nil, err
@@ -230,15 +225,8 @@ func CreateLocalConnection(
 		mosquittoConfig.Credentials.Password = settings.LocalPassword
 	}
 
-	switch u.Scheme {
-	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
-		tlsConfig, err := NewLocalTLSConfig(settings, logger)
-		if err != nil {
-			return nil, err
-		}
-		mosquittoConfig.TLSConfig = tlsConfig
-	default:
-		// unsupported
+	if err := SetupLocalTLS(mosquittoConfig, settings, logger); err != nil {
+		return nil, err
 	}
 
 	return conn.NewMQTTConnection(mosquittoConfig, localClientID, logger)
@@ -250,11 +238,6 @@ func CreateCloudConnection(
 	cleanSession bool,
 	logger watermill.LoggerAdapter,
 ) (*conn.MQTTConnection, error) {
-	u, err := url.Parse(settings.LocalAddress)
-	if err != nil {
-		return nil, err
-	}
-
 	mosquittoConfig, err := conn.NewMQTTClientConfig(settings.LocalAddress)
 	if err != nil {
 		return nil, err
@@ -270,15 +253,8 @@ func CreateCloudConnection(
 		mosquittoConfig.Credentials.Password = settings.LocalPassword
 	}
 
-	switch u.Scheme {
-	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
-		tlsConfig, err := NewLocalTLSConfig(settings, logger)
-		if err != nil {
-			return nil, err
-		}
-		mosquittoConfig.TLSConfig = tlsConfig
-	default:
-		// unsupported
+	if err := SetupLocalTLS(mosquittoConfig, settings, logger); err != nil {
+		return nil, err
 	}
 
 	return conn.NewMQTTConnection(mosquittoConfig, cloudClientID, logger)
@@ -290,6 +266,31 @@ func SetupTracing(router *message.Router, logger logger.Logger) {
 	if len(tracingPrefixes) > 0 {
 		router.AddMiddleware(conn.NewTrace(logger, strings.Split(tracingPrefixes, ",")))
 	}
+}
+
+// SetupLocalTLS creates a local ssl configuration.
+func SetupLocalTLS(
+	mosquittoConfig *conn.Configuration,
+	settings *LocalConnectionSettings,
+	logger watermill.LoggerAdapter,
+) error {
+	u, err := url.Parse(settings.LocalAddress)
+	if err != nil {
+		return err
+	}
+
+	switch u.Scheme {
+	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+		tlsConfig, err := NewLocalTLSConfig(settings, logger)
+		if err != nil {
+			return err
+		}
+		mosquittoConfig.TLSConfig = tlsConfig
+	default:
+		// unsupported
+	}
+
+	return nil
 }
 
 // NewHonoSub returns subscriber for the Hono message connection.
