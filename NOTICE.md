@@ -159,12 +159,6 @@ golang.org/x/sync (v0.0.0-20210405180319-a5a99cb37ef4)
 * Project: https://github.com/golang/sync
 * Source:  https://github.com/golang/sync
 
-golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
-
-* License: BSD 3-Clause "New" or "Revised" License
-* Project: https://github.com/golang/sync
-* Source:  https://github.com/golang/sync
-
 ## Cryptography
 
 Content may contain encryption software. The country in which you are currently
