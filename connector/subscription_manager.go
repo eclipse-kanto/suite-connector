@@ -41,7 +41,6 @@ func (m *subscriptionManager) Add(topic string) bool {
 			conn.subscribe(nil, QosAtMostOnce, topic)
 			return true
 		}
-
 	}
 	return false
 }
