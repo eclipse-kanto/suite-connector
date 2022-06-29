@@ -42,5 +42,5 @@ jobs:
       - name: Test
         run: |
           docker system prune -f
-          docker-compose -f ./docker/docker-compose-integration-tests.yml up --build --no-color tests
+          docker-compose -f ./docker/docker-compose-tests.yml up --build --no-color tests
           go tool cover -func coverage.out
