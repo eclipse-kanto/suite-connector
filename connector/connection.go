@@ -136,6 +136,8 @@ func createClientOptions(config *Configuration, clientID string, cleanSession bo
 	if config.NoOpStore {
 		store := new(nostore)
 		clientOpts.SetStore(store)
+	} else {
+		clientOpts.SetStore(mqtt.NewOrderedMemoryStore())
 	}
 
 	return clientOpts
