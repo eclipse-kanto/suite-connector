@@ -108,7 +108,7 @@ func TestLogHandlerAccept(t *testing.T) {
 	h := &routing.LogHandler{
 		SubcriptionList: list.New(),
 		Manager:         connector.NewSubscriptionManager(),
-		Logger:          testutil.NewLogger("subscription", logger.INFO),
+		Logger:          testutil.NewLogger("subscription", logger.INFO, t),
 	}
 
 	msg := message.NewMessage(watermill.NewUUID(), []byte("1635966263: dummy 0 command//Testing:Logs/req/#"))
@@ -161,7 +161,7 @@ func TestLogHandlerReject(t *testing.T) {
 	h := &routing.LogHandler{
 		SubcriptionList: list.New(),
 		Manager:         connector.NewSubscriptionManager(),
-		Logger:          testutil.NewLogger("subscription", logger.INFO),
+		Logger:          testutil.NewLogger("subscription", logger.INFO, t),
 	}
 
 	msg := message.NewMessage(watermill.NewUUID(), []byte("1635966263: dummy 0 command//Testing:Logs/req/#"))

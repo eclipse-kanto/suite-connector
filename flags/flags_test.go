@@ -30,7 +30,7 @@ import (
 )
 
 func TestFlagsMappings(t *testing.T) {
-	l := testutil.NewLogger("flags", logger.INFO)
+	l := testutil.NewLogger("flags", logger.INFO, t)
 
 	f := flag.NewFlagSet("testing", flag.ContinueOnError)
 

@@ -118,7 +118,7 @@ func TestTPMValidateError(t *testing.T) {
 		PublicCertFile:       "test",
 		ExtTLSConfig:         &tls.Config{},
 	}
-	_, err := NewTPMContext(ctxOpts, testutil.NewLogger("[tpmtls] ", logger.DEBUG))
+	_, err := NewTPMContext(ctxOpts, testutil.NewLogger("[tpmtls] ", logger.DEBUG, t))
 	require.Error(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), "unable to read certificate file content: open test: "), err.Error())
 }
@@ -132,7 +132,7 @@ func TestTPMPubKeyParseError(t *testing.T) {
 		PublicCertFile:       testCert,
 		ExtTLSConfig:         &tls.Config{},
 	}
-	_, err := NewTPMContext(ctxOpts, testutil.NewLogger("[tpmtls] ", logger.DEBUG))
+	_, err := NewTPMContext(ctxOpts, testutil.NewLogger("[tpmtls] ", logger.DEBUG, t))
 	require.Error(t, err)
 	assert.Equal(t, "unexpected EOF", err.Error())
 }

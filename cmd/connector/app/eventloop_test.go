@@ -95,7 +95,7 @@ func TestEventLoop(t *testing.T) {
 }
 
 func TestMessagesRouter(t *testing.T) {
-	logger := testutil.NewLogger("testing", logger.ERROR)
+	logger := testutil.NewLogger("testing", logger.ERROR, t)
 
 	router := NewRouter(logger)
 

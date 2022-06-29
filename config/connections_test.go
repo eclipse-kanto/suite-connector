@@ -42,7 +42,7 @@ func TestCreateHonoClientNoCacert(t *testing.T) {
 		HubConnectionSettings: hubSettings,
 	}
 	require.NoError(t, settings.ValidateDynamic())
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	honoClient, _, err := config.CreateHubConnection(&settings.HubConnectionSettings, false, logger)
 	require.Error(t, err)
 	assert.Nil(t, honoClient)
@@ -64,7 +64,7 @@ func TestCreateHonoClient(t *testing.T) {
 		HubConnectionSettings: hubSettings,
 	}
 	require.NoError(t, settings.ValidateDynamic())
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	t.Setenv("HUB_CONNECT_INIT", "60")
 	t.Setenv("HUB_CONNECT_MAX", "120")
@@ -102,7 +102,7 @@ func TestCreateHonoClientInvalidURL(t *testing.T) {
 		Address: "invalid#%",
 	}
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	honoClient, _, err := config.CreateHubConnection(hubSettings, false, logger)
 	require.Error(t, err)
 	assert.Nil(t, honoClient)
@@ -116,7 +116,7 @@ func TestCreateLocalConnectionValidURL(t *testing.T) {
 		LocalUsername: "test",
 	}
 	assert.NotNil(t, settings.LocalAddress) // assert default is set
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	localConnection, err := config.CreateLocalConnection(settings, logger)
 	require.NoError(t, err)
 	assert.NotNil(t, localConnection)
@@ -128,7 +128,7 @@ func TestCreateLocalConnectionInvalidURL(t *testing.T) {
 	settings := &config.LocalConnectionSettings{
 		LocalAddress: "invalid#%",
 	}
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	cloudClient, err := config.CreateLocalConnection(settings, logger)
 	require.Error(t, err)
 	assert.Nil(t, cloudClient)
@@ -142,7 +142,7 @@ func TestCreateCloudConnectionValidURL(t *testing.T) {
 		LocalUsername: "test",
 	}
 	assert.NotNil(t, settings.LocalAddress)
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	cloudClient, err := config.CreateCloudConnection(settings, false, logger)
 	require.NoError(t, err)
 	assert.NotNil(t, cloudClient)
@@ -154,7 +154,7 @@ func TestCreateCloudConnectionInvalidURL(t *testing.T) {
 	settings := &config.LocalConnectionSettings{
 		LocalAddress: "invalid#%",
 	}
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	cloudClient, err := config.CreateCloudConnection(settings, false, logger)
 	require.Error(t, err)
 	assert.Nil(t, cloudClient)
@@ -163,7 +163,7 @@ func TestCreateCloudConnectionInvalidURL(t *testing.T) {
 func TestNewRouterEmptyConfig(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	router, err := message.NewRouter(message.RouterConfig{}, logger)
 	require.NoError(t, err)
 	assert.NotNil(t, router)
@@ -173,7 +173,7 @@ func TestNewRouterEmptyConfig(t *testing.T) {
 func TestSetupTracing(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	router, _ := message.NewRouter(message.RouterConfig{}, logger)
 	assert.NotNil(t, router)
 	defer router.Close()
@@ -189,7 +189,7 @@ func TestHonoPub(t *testing.T) {
 	cfg, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestOnlineHonoPub(t *testing.T) {
 	cfg, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestHonoSub(t *testing.T) {
 	cfg, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)

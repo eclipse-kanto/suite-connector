@@ -37,7 +37,7 @@ import (
 )
 
 func TestNotifyListeners(t *testing.T) {
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestNotifyListeners(t *testing.T) {
 }
 
 func TestParamsBus(t *testing.T) {
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	source := gochannel.NewGoChannel(
 		gochannel.Config{OutputChannelBuffer: int64(16)},
@@ -150,7 +150,7 @@ func TestParamsBus(t *testing.T) {
 }
 
 func TestServiceRouter(t *testing.T) {
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)

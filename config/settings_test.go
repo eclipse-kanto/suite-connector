@@ -126,7 +126,7 @@ func TestApplySettingsValidateError(t *testing.T) {
 func TestProvisioningUpdate(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	statusPub := gochannel.NewGoChannel(
 		gochannel.Config{
@@ -320,7 +320,7 @@ func TestProvisioningWithDeviceIDPatternConflict(t *testing.T) {
 }
 
 func doTestErrorStatus(t *testing.T, provJSON, expected string, cmd map[string]interface{}) {
-	logger := testutil.NewLogger("testing", logger.DEBUG)
+	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 
 	statusPub := gochannel.NewGoChannel(
 		gochannel.Config{
