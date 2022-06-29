@@ -1,4 +1,4 @@
-FROM golang:alpine AS build-env
+FROM golang:1.17.2-alpine3.14 AS build-env
 
 ENV CGO_ENABLED 0
 ENV TEST_MQTT_URI tcp://mosquitto:1883

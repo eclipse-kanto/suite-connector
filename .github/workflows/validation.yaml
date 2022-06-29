@@ -41,5 +41,6 @@ jobs:
           go vet ./...
       - name: Test
         run: |
-          go test ./... -coverprofile coverage.out -covermode count -tags=unit
+          docker system prune -f
+          docker-compose -f ./docker/docker-compose-tests.yml up --build --no-color tests
           go tool cover -func coverage.out
