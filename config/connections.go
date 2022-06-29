@@ -379,11 +379,18 @@ func LocalConnect(ctx context.Context,
 }
 
 // HonoConnect connects to the Hub.
-func HonoConnect(sigs <-chan os.Signal,
+func HonoConnect(sigs chan os.Signal,
 	statusPub message.Publisher,
 	honoClient *conn.MQTTConnection,
 	logger logger.Logger,
 ) error {
+
+	if sigs == nil {
+		sigs = make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(sigs)
+	}
+
 	b := honoClient.ConnectBackoff()
 	b.Reset()
 
