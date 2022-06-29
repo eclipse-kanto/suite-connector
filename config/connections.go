@@ -127,7 +127,10 @@ func CreateHubConnection(
 		return nil, nil, err
 	}
 
-	honoConfig.CleanSession = true
+	if len(settings.ClientID) == 0 {
+		settings.ClientID = watermill.NewShortUUID()
+	}
+
 	honoConfig.ExternalReconnect = true
 	honoConfig.NoOpStore = nopStore
 	honoConfig.ConnectRetryInterval = 0
