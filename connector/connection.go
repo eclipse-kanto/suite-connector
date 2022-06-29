@@ -313,8 +313,9 @@ func (c *MQTTConnection) setDefaultHandler(defaultHandler mqtt.MessageHandler) {
 
 func (c *MQTTConnection) onConnected(client mqtt.Client) {
 	logFields := watermill.LogFields{
-		"mqtt_url":  c.config.URL,
-		"client_id": c.clientID,
+		"client_id":     c.clientID,
+		"mqtt_url":      c.config.URL,
+		"clean_session": c.config.CleanSession,
 	}
 	c.logger.Info("Connected", logFields)
 
