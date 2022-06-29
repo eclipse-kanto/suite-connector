@@ -139,15 +139,15 @@ func CreateHubConnection(
 	honoConfig.MinReconnectInterval = time.Minute
 	honoConfig.MaxReconnectInterval = 4 * time.Minute
 
-	if min, err := strconv.ParseInt(os.Getenv("HUB_CONNNECT_INIT"), 0, 64); err == nil {
+	if min, err := strconv.ParseInt(os.Getenv("HUB_CONNECT_INIT"), 0, 64); err == nil {
 		honoConfig.MinReconnectInterval = time.Duration(min) * time.Second
 	}
 
-	if max, err := strconv.ParseInt(os.Getenv("HUB_CONNNECT_MAX"), 0, 64); err == nil {
+	if max, err := strconv.ParseInt(os.Getenv("HUB_CONNECT_MAX"), 0, 64); err == nil {
 		honoConfig.MaxReconnectInterval = time.Duration(max) * time.Second
 	}
 
-	if mul, err := strconv.ParseFloat(os.Getenv("HUB_CONNNECT_MUL"), 32); err == nil {
+	if mul, err := strconv.ParseFloat(os.Getenv("HUB_CONNECT_MUL"), 32); err == nil {
 		honoConfig.BackoffMultiplier = mul
 	}
 
@@ -388,8 +388,8 @@ func HonoConnect(sigs <-chan os.Signal,
 	b.Reset()
 
 	logFields := watermill.LogFields{
-		"mqtt_url": honoClient.URL(),
-		"clientid": honoClient.ClientID(),
+		"mqtt_url":  honoClient.URL(),
+		"client_id": honoClient.ClientID(),
 	}
 
 	for {

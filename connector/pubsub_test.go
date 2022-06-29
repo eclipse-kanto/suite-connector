@@ -25,11 +25,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/tevino/abool/v2"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -115,18 +115,19 @@ type closedecorator struct {
 
 	pub message.Publisher
 
-	closed int32
+	closed *abool.AtomicBool
 }
 
 func newCloseDecorator(conn *conn.MQTTConnection, pub message.Publisher) message.Publisher {
 	return &closedecorator{
-		conn: conn,
-		pub:  pub,
+		conn:   conn,
+		pub:    pub,
+		closed: abool.New(),
 	}
 }
 
 func (p *closedecorator) Publish(topic string, messages ...*message.Message) error {
-	if atomic.LoadInt32(&p.closed) == 1 {
+	if p.closed.IsSet() {
 		return conn.ErrClosed
 	}
 
@@ -134,7 +135,7 @@ func (p *closedecorator) Publish(topic string, messages ...*message.Message) err
 }
 
 func (p *closedecorator) Close() error {
-	if atomic.CompareAndSwapInt32(&p.closed, 0, 1) {
+	if p.closed.SetToIf(false, true) {
 		defer p.conn.Disconnect()
 
 		return p.pub.Close()
@@ -882,10 +883,10 @@ func TestUnroutableMessages(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	logFields := watermill.LogFields{
-		"mqtt_url": config.URL,
-		"clientid": clientId,
-		"topic":    "unroutable/test",
-		"message":  "unroutable",
+		"mqtt_url":  config.URL,
+		"client_id": clientId,
+		"topic":     "unroutable/test",
+		"message":   "unroutable",
 	}
 
 	assert.True(t, logger.Has(watermill.CapturedMessage{

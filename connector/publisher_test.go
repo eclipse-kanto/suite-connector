@@ -38,10 +38,13 @@ func TestPublisherNotConnected(t *testing.T) {
 
 	pub := conn.NewPublisher(client, conn.QosAtMostOnce, nil, nil)
 	require.NoError(t, pub.Publish("errors/test", msg))
+	assert.NoError(t, pub.Close())
 
 	pub = conn.NewSyncPublisher(client, conn.QosAtLeastOnce, 10*time.Second, nil, nil)
 	require.Error(t, pub.Publish("errors/test", msg))
+	assert.NoError(t, pub.Close())
 
 	pub = conn.NewOnlinePublisher(client, conn.QosAtMostOnce, 10*time.Second, nil, nil)
 	assert.ErrorIs(t, conn.ErrNotConnected, pub.Publish("errors/test", msg))
+	assert.NoError(t, pub.Close())
 }

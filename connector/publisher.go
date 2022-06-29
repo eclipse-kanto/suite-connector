@@ -96,7 +96,7 @@ func (m *publisher) Publish(topic string, msgs ...*message.Message) error {
 			logFields := m.fields.Add(
 				watermill.LogFields{
 					"message_uuid": msg.UUID,
-					"clientid":     m.conn.clientID,
+					"client_id":    m.conn.clientID,
 					"mqtt_topic":   publishTopic,
 					"qos":          publishQos,
 					"retain":       retain,

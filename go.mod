@@ -14,6 +14,7 @@ require (
 	github.com/imdario/mergo v0.3.12
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
+	github.com/tevino/abool/v2 v2.0.1
 	go.uber.org/goleak v1.1.10
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
