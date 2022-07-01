@@ -945,7 +945,7 @@ func TestCredentialsProvider(t *testing.T) {
 	config.Credentials.UserName = "invalid"
 	config.Credentials.Password = "invalid"
 
-	pubClient, err := conn.NewMQTTConnectionWithCredentials(
+	pubClient, err := conn.NewMQTTConnectionCredentialsProvider(
 		config, "",
 		nil,
 		func() (string, string) {

@@ -385,12 +385,6 @@ func HonoConnect(sigs chan os.Signal,
 	logger logger.Logger,
 ) error {
 
-	if sigs == nil {
-		sigs = make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		defer signal.Stop(sigs)
-	}
-
 	b := honoClient.ConnectBackoff()
 	b.Reset()
 
