@@ -34,8 +34,8 @@ func TestNewLogger(t *testing.T) {
 	f.On("Log", "[testutil]", "INFO  ", "Simple message")
 
 	l := testutil.NewLogger("testutil", logger.TRACE, f)
-	l.Info("Simple message\n", nil)
 	assert.NotNil(t, l)
+	l.Info("Simple message\n", nil)
 
 	f.AssertExpectations(t)
 }

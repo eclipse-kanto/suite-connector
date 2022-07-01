@@ -28,12 +28,12 @@ type LogFacade interface {
 	Log(args ...interface{})
 }
 
-type testexporter struct {
+type testExporter struct {
 	f    LogFacade
 	name string
 }
 
-func (e *testexporter) Export(level logger.LogLevel, msg string) {
+func (e *testExporter) Export(level logger.LogLevel, msg string) {
 	if l := len(msg); l > 0 && msg[l-1] == '\n' {
 		msg = msg[0 : l-1]
 	}
@@ -41,7 +41,7 @@ func (e *testexporter) Export(level logger.LogLevel, msg string) {
 }
 
 func newTestExporter(name string, f LogFacade) logger.Exporter {
-	return &testexporter{
+	return &testExporter{
 		f:    f,
 		name: fmt.Sprintf("[%s]", name),
 	}
