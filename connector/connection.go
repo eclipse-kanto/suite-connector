@@ -61,6 +61,13 @@ type ConnectionListener interface {
 func NewMQTTConnection(
 	config *Configuration, clientID string, logger watermill.LoggerAdapter,
 ) (*MQTTConnection, error) {
+	return NewMQTTConnectionCredentialsProvider(config, clientID, logger, nil)
+}
+
+// NewMQTTConnectionCredentialsProvider creates a local MQTT connection with specific credentials provider.
+func NewMQTTConnectionCredentialsProvider(
+	config *Configuration, clientID string, logger watermill.LoggerAdapter, prov func() (string, string),
+) (*MQTTConnection, error) {
 	if config == nil {
 		return nil, errors.New("no client config")
 	}
@@ -88,7 +95,7 @@ func NewMQTTConnection(
 		running:      abool.NewBool(true),
 	}
 
-	conn.initMQTTClient()
+	conn.initMQTTClient(prov)
 
 	return conn, nil
 }
@@ -279,13 +286,17 @@ func (c *MQTTConnection) RemoveConnectionListener(listener ConnectionListener) {
 	}
 }
 
-func (c *MQTTConnection) initMQTTClient() {
+func (c *MQTTConnection) initMQTTClient(prov func() (string, string)) {
 	config := &c.config
 
 	clientOpts := createClientOptions(config, c.clientID, config.CleanSession)
 	clientOpts.SetOnConnectHandler(c.onConnected)
 	clientOpts.SetConnectionLostHandler(c.onConnectionLost)
 	clientOpts.SetDefaultPublishHandler(c.onDefaultHandlerWrapper)
+
+	if prov != nil {
+		clientOpts.SetCredentialsProvider(prov)
+	}
 
 	c.mqttClient = mqtt.NewClient(clientOpts)
 }
