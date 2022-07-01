@@ -64,7 +64,7 @@ func NewMQTTConnection(
 	return NewMQTTConnectionCredentialsProvider(config, clientID, logger, nil)
 }
 
-// NewMQTTConnectionWithCredentials creates a local MQTT connection with specific credentials provider.
+// NewMQTTConnectionCredentialsProvider creates a local MQTT connection with specific credentials provider.
 func NewMQTTConnectionCredentialsProvider(
 	config *Configuration, clientID string, logger watermill.LoggerAdapter, prov func() (string, string),
 ) (*MQTTConnection, error) {
