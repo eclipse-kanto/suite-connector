@@ -161,7 +161,7 @@ func newPub(cfg *conn.Configuration, logger logger.Logger, codec conn.Marshaller
 }
 
 func createPubSub(t *testing.T) (message.Publisher, message.Subscriber) {
-	logger := testutil.NewLogger("connector", logger.INFO)
+	logger := testutil.NewLogger("connector", logger.INFO, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
@@ -184,7 +184,7 @@ func createPubSub(t *testing.T) (message.Publisher, message.Subscriber) {
 }
 
 func createPubSubDurable(t *testing.T, consumerGroup string) (message.Publisher, message.Subscriber) {
-	logger := testutil.NewLogger("connector", logger.INFO)
+	logger := testutil.NewLogger("connector", logger.INFO, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestNonPersistent(t *testing.T) {
 
 	pubClient, err := conn.NewMQTTConnection(
 		config, "",
-		testutil.NewLogger("connector", logger.INFO),
+		testutil.NewLogger("connector", logger.INFO, t),
 	)
 	require.NoError(t, err)
 
@@ -315,14 +315,14 @@ func TestNonPersistent(t *testing.T) {
 
 	sub := conn.NewBufferedSubscriber(
 		pubClient, 16, false,
-		testutil.NewLogger("connector", logger.INFO),
+		testutil.NewLogger("connector", logger.INFO, t),
 		newTestMarshaller(),
 	)
 
 	pub := conn.NewPublisher(
 		pubClient,
 		conn.QosAtMostOnce,
-		testutil.NewLogger("connector", logger.INFO),
+		testutil.NewLogger("connector", logger.INFO, t),
 		newTestMarshaller(),
 	)
 
@@ -357,7 +357,7 @@ func doSimpleTest(t *testing.T, pub message.Publisher, sub message.Subscriber) {
 func TestForwarder(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("connector", logger.DEBUG)
+	logger := testutil.NewLogger("connector", logger.DEBUG, t)
 
 	config, err := testutil.NewLocalConfig()
 	config.NoOpStore = true
@@ -411,14 +411,14 @@ func TestClosedPubSub(t *testing.T) {
 
 	pubClient, err := conn.NewMQTTConnection(
 		config, "",
-		testutil.NewLogger("connector", logger.INFO),
+		testutil.NewLogger("connector", logger.INFO, t),
 	)
 	require.NoError(t, err)
 
 	pub := conn.NewPublisher(
 		pubClient,
 		conn.QosAtMostOnce,
-		testutil.NewLogger("connector", logger.INFO),
+		testutil.NewLogger("connector", logger.INFO, t),
 		newTestMarshaller(),
 	)
 
@@ -459,7 +459,7 @@ func TestClosedPubSub(t *testing.T) {
 func TestSubscriptionManager(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("connector", logger.INFO)
+	logger := testutil.NewLogger("connector", logger.INFO, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
@@ -629,7 +629,7 @@ func TestSimpleDelivery(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	//Create logger
-	logger := testutil.NewLogger("connector", logger.DEBUG)
+	logger := testutil.NewLogger("connector", logger.DEBUG, t)
 
 	//Create configuration
 	config, err := testutil.NewLocalConfig()
@@ -756,7 +756,7 @@ func TestMarshalError(t *testing.T) {
 func TestSubscriberBlocking(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("connector", logger.INFO)
+	logger := testutil.NewLogger("connector", logger.INFO, t)
 
 	topicName := watermill.NewUUID()
 	clientId := watermill.NewShortUUID()
@@ -897,7 +897,7 @@ func TestUnroutableMessages(t *testing.T) {
 }
 
 func TestCannotConnect(t *testing.T) {
-	logger := testutil.NewLogger("connector", logger.ERROR)
+	logger := testutil.NewLogger("connector", logger.ERROR, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)

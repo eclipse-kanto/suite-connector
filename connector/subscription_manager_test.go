@@ -38,7 +38,7 @@ func TestAddSubscription(t *testing.T) {
 
 	pubClient, err := connector.NewMQTTConnection(
 		config, "",
-		testutil.NewLogger("connector", logger.INFO),
+		testutil.NewLogger("connector", logger.INFO, t),
 	)
 	require.NoError(t, err)
 

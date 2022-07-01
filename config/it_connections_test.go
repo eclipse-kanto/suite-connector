@@ -41,7 +41,7 @@ func TestLocalConnect(t *testing.T) {
 	require.NoError(t, err)
 	cfg.ConnectTimeout = 5 * time.Second
 
-	logger := testutil.NewLogger("connections", logger.DEBUG)
+	logger := testutil.NewLogger("connections", logger.DEBUG, t)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestDummyHonoConnect(t *testing.T) {
 	require.NoError(t, err)
 	cfg.ConnectTimeout = 5 * time.Second
 
-	logger := testutil.NewLogger("connections", logger.DEBUG)
+	logger := testutil.NewLogger("connections", logger.DEBUG, t)
 
 	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
 	require.NoError(t, err)

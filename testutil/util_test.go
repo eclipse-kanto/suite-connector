@@ -12,31 +12,13 @@
 package testutil_test
 
 import (
-	"os"
 	"testing"
 
-	"github.com/eclipse-kanto/suite-connector/logger"
 	"github.com/eclipse-kanto/suite-connector/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestNewLogger(t *testing.T) {
-	l := testutil.NewLogger("testutil", logger.TRACE)
-	assert.NotNil(t, l)
-}
-
-func TestNewLoggerEnvNop(t *testing.T) {
-	nop := os.Getenv("TEST_NOP_LOGGER")
-	defer os.Setenv("TEST_NOP_LOGGER", nop)
-
-	err := os.Setenv("TEST_NOP_LOGGER", "val")
-	require.NoError(t, err)
-
-	l := testutil.NewLogger("testutil", logger.DEBUG)
-	assert.NotNil(t, l)
-}
 
 func TestNewLocalConfig(t *testing.T) {
 	conf, err := testutil.NewLocalConfig()
@@ -45,11 +27,7 @@ func TestNewLocalConfig(t *testing.T) {
 }
 
 func TestNewLocalConfigInvalidURI(t *testing.T) {
-	uri := os.Getenv("TEST_MQTT_URI")
-	defer os.Setenv("TEST_MQTT_URI", uri)
-
-	err := os.Setenv("TEST_MQTT_URI", "invalid")
-	require.NoError(t, err)
+	t.Setenv("TEST_MQTT_URI", "invalid")
 
 	conf, err := testutil.NewLocalConfig()
 	assert.Error(t, err)

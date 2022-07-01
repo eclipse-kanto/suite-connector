@@ -12,40 +12,10 @@
 package testutil
 
 import (
-	"fmt"
-	"io"
-	"log"
 	"os"
 
 	"github.com/eclipse-kanto/suite-connector/connector"
-	"github.com/eclipse-kanto/suite-connector/logger"
 )
-
-const (
-	logFlags int = log.LstdFlags | log.Lmicroseconds | log.Lshortfile
-)
-
-func init() {
-	if nop := os.Getenv("TEST_NOP_LOGGER"); len(nop) > 0 {
-		log.SetOutput(io.Discard)
-	} else {
-		pahoLogLevel := os.Getenv("TEST_MQTT_LOG_LEVEL")
-		if len(pahoLogLevel) > 0 {
-			pahoLog := log.New(os.Stdout, fmt.Sprintf("[%s] ", "paho"), logFlags)
-			logger.ConfigMQTT(logger.ParseLogLevel(pahoLogLevel), pahoLog)
-		}
-	}
-}
-
-// NewLogger returns system output logger.
-func NewLogger(name string, level logger.LogLevel) logger.Logger {
-	if nop := os.Getenv("TEST_NOP_LOGGER"); len(nop) > 0 {
-		logout := log.New(io.Discard, fmt.Sprintf("[%s] ", name), logFlags)
-		return logger.NewLogger(logout, level)
-	}
-	logout := log.New(os.Stdout, fmt.Sprintf("[%s] ", name), logFlags)
-	return logger.NewLogger(logout, level)
-}
 
 // NewLocalConfig returns the testing connector configuration.
 func NewLocalConfig() (*connector.Configuration, error) {

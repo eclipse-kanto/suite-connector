@@ -258,7 +258,7 @@ func assertCache(s *CommandHandlersTestSuite, correlationId string, present bool
 }
 
 func TestCommandsBus(t *testing.T) {
-	logger := testutil.NewLogger("commands", logger.ERROR)
+	logger := testutil.NewLogger("commands", logger.ERROR, t)
 
 	source := gochannel.NewGoChannel(
 		gochannel.Config{OutputChannelBuffer: int64(16)},

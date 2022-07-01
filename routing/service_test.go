@@ -76,7 +76,7 @@ func TestStatusCause(t *testing.T) {
 }
 
 func TestErrorsHandler(t *testing.T) {
-	logger := testutil.NewLogger("routing", logger.ERROR)
+	logger := testutil.NewLogger("routing", logger.ERROR, t)
 
 	sink := gochannel.NewGoChannel(
 		gochannel.Config{
@@ -115,7 +115,7 @@ func checkStatus(t *testing.T, msgs <-chan *message.Message, cause string) {
 }
 
 func TestPublishError(t *testing.T) {
-	logger := testutil.NewLogger("routing", logger.ERROR)
+	logger := testutil.NewLogger("routing", logger.ERROR, t)
 
 	sink := gochannel.NewGoChannel(
 		gochannel.Config{

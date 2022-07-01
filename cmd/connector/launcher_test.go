@@ -25,7 +25,7 @@ import (
 )
 
 func TestLauncherInit(t *testing.T) {
-	logger := testutil.NewLogger("testing", logger.ERROR)
+	logger := testutil.NewLogger("testing", logger.ERROR, t)
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)

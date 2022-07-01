@@ -36,7 +36,7 @@ const (
 func TestEventsBus(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
-	logger := testutil.NewLogger("events", logger.ERROR)
+	logger := testutil.NewLogger("events", logger.ERROR, t)
 
 	router, err := message.NewRouter(message.RouterConfig{}, logger)
 	require.NoError(t, err)
