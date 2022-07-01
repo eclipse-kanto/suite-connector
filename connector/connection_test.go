@@ -9,9 +9,6 @@
 //
 // SPDX-License-Identifier: EPL-2.0
 
-//go:build (integration && ignore) || !unit
-// +build integration,ignore !unit
-
 package connector_test
 
 import (
@@ -101,28 +98,4 @@ func verifyBackoff(t *testing.T, b backoff.BackOff, expectedResults []time.Durat
 		assert.LessOrEqual(t, minInterval, actualInterval)
 		assert.GreaterOrEqual(t, maxInterval, actualInterval)
 	}
-}
-
-func TestCredentialsProvider(t *testing.T) {
-	config, err := testutil.NewLocalConfig()
-
-	username := config.Credentials.UserName
-	pass := config.Credentials.Password
-
-	config.Credentials.UserName = "invalid"
-	config.Credentials.Password = "invalid"
-
-	pubClient, err := conn.NewMQTTConnectionCredentialsProvider(
-		config, "",
-		nil,
-		func() (string, string) {
-			return username, pass
-		},
-	)
-	require.NoError(t, err)
-
-	future := pubClient.Connect()
-	<-future.Done()
-	require.NoError(t, future.Error())
-	pubClient.Disconnect()
 }
