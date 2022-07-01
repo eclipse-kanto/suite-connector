@@ -935,27 +935,3 @@ func TestCannotConnect(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, sub.Close())
 }
-
-func TestCredentialsProvider(t *testing.T) {
-	config, err := testutil.NewLocalConfig()
-
-	username := config.Credentials.UserName
-	pass := config.Credentials.Password
-
-	config.Credentials.UserName = "invalid"
-	config.Credentials.Password = "invalid"
-
-	pubClient, err := conn.NewMQTTConnectionCredentialsProvider(
-		config, "",
-		nil,
-		func() (string, string) {
-			return username, pass
-		},
-	)
-	require.NoError(t, err)
-
-	future := pubClient.Connect()
-	<-future.Done()
-	require.NoError(t, future.Error())
-	pubClient.Disconnect()
-}
