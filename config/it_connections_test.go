@@ -86,5 +86,8 @@ func TestDummyHonoConnect(t *testing.T) {
 	}()
 
 	require.NoError(t, config.HonoConnect(sigs, statusPub, client, logger))
-	defer client.Disconnect()
+	client.Disconnect()
+
+	require.NoError(t, config.HonoConnect(nil, statusPub, client, logger))
+	client.Disconnect()
 }
