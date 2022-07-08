@@ -198,6 +198,9 @@ func TestDefaults(t *testing.T) {
 	settings.CACert = "testdata/certificate.pem"
 	assert.NoError(t, settings.ValidateStatic())
 
+	settings.CACert = ""
+	assert.NoError(t, settings.ValidateStatic())
+
 	assert.NotNil(t, settings.LocalConnection())
 	assert.NotNil(t, settings.HubConnection())
 	assert.Equal(t, settings.ProvisioningFile, settings.Provisioning())
