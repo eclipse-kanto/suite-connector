@@ -103,7 +103,9 @@ func (l *launcher) Run(
 
 				reqCache.Close()
 
-				cleanup()
+				if cleanup != nil {
+					cleanup()
+				}
 
 				logger.Info("Messages router stopped", nil)
 				l.done <- true
