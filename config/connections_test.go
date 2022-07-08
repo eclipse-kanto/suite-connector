@@ -44,8 +44,8 @@ func TestCreateHonoClientNoCacert(t *testing.T) {
 	require.NoError(t, settings.ValidateDynamic())
 	logger := testutil.NewLogger("testing", logger.DEBUG, t)
 	honoClient, _, err := config.CreateHubConnection(&settings.HubConnectionSettings, false, logger)
-	require.Error(t, err)
-	assert.Nil(t, honoClient)
+	require.NoError(t, err)
+	assert.NotNil(t, honoClient)
 }
 
 func TestCreateHonoClient(t *testing.T) {

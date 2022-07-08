@@ -151,6 +151,18 @@ func CreateHubConnection(
 		honoConfig.BackoffMultiplier = mul
 	}
 
+	if len(settings.CACert) == 0 {
+		settings.UseCertificate = false
+		honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
+		honoConfig.Credentials.Password = settings.Password
+		conn, err := conn.NewMQTTConnection(honoConfig, settings.ClientID, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return conn, nil, err
+	}
+
 	tlsConfig, cleaner, err := NewHubTLSConfig(&settings.TLSSettings, logger)
 	if err != nil {
 		return nil, nil, err
@@ -160,22 +172,21 @@ func CreateHubConnection(
 		settings.UseCertificate = false
 		honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
 		honoConfig.Credentials.Password = settings.Password
+	}
 
-	} else {
-		if len(settings.DeviceIDPattern) > 0 {
-			resolved, err := util.ReplacePattern(settings.DeviceIDPattern, tlsConfig.Certificates[0])
-			if err != nil {
-				defer cleaner()
-				return nil, nil, errors.Wrapf(err, "unable to resolve device ID pattern '%s'", settings.DeviceIDPattern)
-			}
-
-			if ns := model.NewNamespacedIDFrom(resolved); ns == nil {
-				defer cleaner()
-				return nil, nil, errors.Errorf("device ID '%s' has invalid namespace ID", resolved)
-			}
-
-			settings.DeviceID = resolved
+	if len(settings.DeviceIDPattern) > 0 {
+		resolved, err := util.ReplacePattern(settings.DeviceIDPattern, tlsConfig.Certificates[0])
+		if err != nil {
+			defer cleaner()
+			return nil, nil, errors.Wrapf(err, "unable to resolve device ID pattern '%s'", settings.DeviceIDPattern)
 		}
+
+		if ns := model.NewNamespacedIDFrom(resolved); ns == nil {
+			defer cleaner()
+			return nil, nil, errors.Errorf("device ID '%s' has invalid namespace ID", resolved)
+		}
+
+		settings.DeviceID = resolved
 	}
 
 	switch u.Scheme {
