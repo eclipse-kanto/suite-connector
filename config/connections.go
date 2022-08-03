@@ -151,6 +151,18 @@ func CreateHubConnection(
 		honoConfig.BackoffMultiplier = mul
 	}
 
+	if len(settings.CACert) == 0 {
+		settings.UseCertificate = false
+		honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
+		honoConfig.Credentials.Password = settings.Password
+		conn, err := conn.NewMQTTConnection(honoConfig, settings.ClientID, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return conn, nil, err
+	}
+
 	tlsConfig, cleaner, err := NewHubTLSConfig(&settings.TLSSettings, logger)
 	if err != nil {
 		return nil, nil, err

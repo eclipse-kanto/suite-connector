@@ -90,19 +90,28 @@ func (settings *Settings) ValidateStatic() error {
 		return err
 	}
 
-	if len(settings.CACert) > 0 && !util.FileExists(settings.CACert) {
-		return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
-	}
-
-	if len(settings.DeviceIDPattern) > 0 {
-		if len(settings.DeviceID) > 0 {
-			return errors.Errorf(
-				"cannot use -deviceIdPattern flag value '%s' when -deviceId flag value '%s' is also provided",
-				settings.DeviceIDPattern, settings.DeviceID,
-			)
+	if len(settings.CACert) > 0 {
+		if !util.FileExists(settings.CACert) {
+			return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
 		}
 
-		if len(settings.Cert) == 0 {
+		if len(settings.DeviceIDPattern) > 0 {
+			if len(settings.DeviceID) > 0 {
+				return errors.Errorf(
+					"cannot use -deviceIdPattern flag value '%s' when -deviceId flag value '%s' is also provided",
+					settings.DeviceIDPattern, settings.DeviceID,
+				)
+			}
+
+			if len(settings.Cert) == 0 {
+				return errors.Errorf(
+					"cannot use -deviceIdPattern flag value '%s' when the certificate file is not provided",
+					settings.DeviceIDPattern,
+				)
+			}
+		}
+	} else {
+		if len(settings.DeviceIDPattern) > 0 {
 			return errors.Errorf(
 				"cannot use -deviceIdPattern flag value '%s' when the certificate file is not provided",
 				settings.DeviceIDPattern,
@@ -119,9 +128,6 @@ func DefaultSettings() *Settings {
 		HubConnectionSettings: HubConnectionSettings{
 			Address:                 "mqtts://mqtt.bosch-iot-hub.com:8883",
 			AutoProvisioningEnabled: true,
-			TLSSettings: TLSSettings{
-				CACert: "iothub.crt",
-			},
 		},
 		LocalConnectionSettings: LocalConnectionSettings{
 			LocalAddress: "tcp://localhost:1883",
