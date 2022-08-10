@@ -7,7 +7,7 @@ Requires=mosquitto.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/suite-connector -configFile /etc/suite-connector/config.json
+ExecStart=/usr/bin/suite-connector -configFile /etc/suite-connector/config.json
 Restart=always
 
 [Install]
