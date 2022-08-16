@@ -191,7 +191,9 @@ func CreateHubConnection(
 
 	conn, err := conn.NewMQTTConnection(honoConfig, settings.ClientID, logger)
 	if err != nil {
-		defer cleaner()
+		if cleaner != nil {
+			defer cleaner()
+		}
 
 		return nil, nil, err
 	}
