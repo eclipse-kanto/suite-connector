@@ -187,13 +187,13 @@ func TestConfig(t *testing.T) {
 	assert.Equal(t, expSettings, settings)
 
 	settings.TenantID = "tenantId_config"
-	assert.NoError(t, settings.ValidateStatic())
+	assert.Error(t, settings.ValidateStatic())
 	assert.NoError(t, settings.ValidateDynamic())
 }
 
 func TestDefaults(t *testing.T) {
 	settings := DefaultSettings()
-	assert.NoError(t, settings.ValidateStatic())
+	assert.Error(t, settings.ValidateStatic())
 
 	settings.CACert = "testdata/certificate.pem"
 	assert.NoError(t, settings.ValidateStatic())
@@ -202,6 +202,10 @@ func TestDefaults(t *testing.T) {
 	assert.NotNil(t, settings.HubConnection())
 	assert.Equal(t, settings.ProvisioningFile, settings.Provisioning())
 	assert.Equal(t, settings, settings.DeepCopy())
+
+	settings.CACert = ""
+	settings.Address = "hono.eclipseprojects.io:1883"
+	assert.NoError(t, settings.ValidateStatic())
 }
 
 func TestProvisioningMissing(t *testing.T) {

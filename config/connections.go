@@ -13,6 +13,7 @@ package config
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -115,7 +116,7 @@ func (c *LocalConnectionSettings) Validate() error {
 func CreateHubConnection(
 	settings *HubConnectionSettings,
 	nopStore bool,
-	logger watermill.LoggerAdapter,
+	logger logger.Logger,
 ) (*conn.MQTTConnection, Cleaner, error) {
 	honoConfig, err := conn.NewMQTTClientConfig(settings.Address)
 	if err != nil {
@@ -151,50 +152,46 @@ func CreateHubConnection(
 		honoConfig.BackoffMultiplier = mul
 	}
 
-	if len(settings.CACert) == 0 {
-		settings.UseCertificate = false
-		honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
-		honoConfig.Credentials.Password = settings.Password
-		conn, err := conn.NewMQTTConnection(honoConfig, settings.ClientID, logger)
+	noCertificates := true
+	cert := tls.Certificate{}
+	var cleaner Cleaner
+
+	if isConnectionSecure(u.Scheme) {
+		tlsConfig, tlsCleaner, err := NewHubTLSConfig(&settings.TLSSettings, logger)
 		if err != nil {
 			return nil, nil, err
 		}
+		cleaner = tlsCleaner
 
-		return conn, nil, err
+		noCertificates = len(tlsConfig.Certificates) == 0
+		if !noCertificates {
+			cert = tlsConfig.Certificates[0]
+		}
+
+		honoConfig.TLSConfig = tlsConfig
+	} else {
+		logger.Warnf("Insecure connection is used with address=%s", settings.Address)
 	}
 
-	tlsConfig, cleaner, err := NewHubTLSConfig(&settings.TLSSettings, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(tlsConfig.Certificates) == 0 {
+	if noCertificates {
 		settings.UseCertificate = false
 		honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
 		honoConfig.Credentials.Password = settings.Password
-
-	} else {
-		if len(settings.DeviceIDPattern) > 0 {
-			resolved, err := util.ReplacePattern(settings.DeviceIDPattern, tlsConfig.Certificates[0])
-			if err != nil {
-				defer cleaner()
-				return nil, nil, errors.Wrapf(err, "unable to resolve device ID pattern '%s'", settings.DeviceIDPattern)
-			}
-
-			if ns := model.NewNamespacedIDFrom(resolved); ns == nil {
-				defer cleaner()
-				return nil, nil, errors.Errorf("device ID '%s' has invalid namespace ID", resolved)
-			}
-
-			settings.DeviceID = resolved
-		}
 	}
 
-	switch u.Scheme {
-	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
-		honoConfig.TLSConfig = tlsConfig
-	default:
-		// unsupported
+	if len(settings.DeviceIDPattern) > 0 {
+		resolved, err := util.ReplacePattern(settings.DeviceIDPattern, cert)
+		if err != nil {
+			defer cleaner()
+			return nil, nil, errors.Wrapf(err, "unable to resolve device ID pattern '%s'", settings.DeviceIDPattern)
+		}
+
+		if ns := model.NewNamespacedIDFrom(resolved); ns == nil {
+			defer cleaner()
+			return nil, nil, errors.Errorf("device ID '%s' has invalid namespace ID", resolved)
+		}
+
+		settings.DeviceID = resolved
 	}
 
 	conn, err := conn.NewMQTTConnection(honoConfig, settings.ClientID, logger)
@@ -449,4 +446,13 @@ func HonoConnect(sigs chan os.Signal,
 			//go on
 		}
 	}
+}
+
+func isConnectionSecure(schema string) bool {
+	switch schema {
+	case "wss", "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+		return true
+	default:
+	}
+	return false
 }
