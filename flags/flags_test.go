@@ -54,7 +54,7 @@ func TestFlagsMappings(t *testing.T) {
 		"-localUsername=G",
 		"-localPassword=H",
 		"-authId=I",
-		"-cacert=J",
+		"-caCert=J",
 		"-cert=K",
 		"-key=L",
 		"-tpmKey=M",

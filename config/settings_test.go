@@ -59,7 +59,7 @@ type TestSettings struct {
 
 	AuthID string `json:"authId,omitempty"`
 
-	CACert    string `json:"cacert,omitempty"`
+	CACert    string `json:"caCert,omitempty"`
 	Cert      string `json:"cert,omitempty"`
 	Key       string `json:"key,omitempty"`
 	TPMKey    string `json:"tpmKey,omitempty"`

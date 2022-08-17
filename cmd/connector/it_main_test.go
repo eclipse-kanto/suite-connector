@@ -34,7 +34,7 @@ func TestRunWithMockFactory(t *testing.T) {
 	localUsername := fmt.Sprintf("-localUsername=%s", config.Credentials.UserName)
 	localPassword := fmt.Sprintf("-localPassword=%s", config.Credentials.Password)
 
-	args := []string{"-cacert=main_test.go", "-logFile=", localAddr, localUsername, localPassword}
+	args := []string{"-caCert=main_test.go", "-logFile=", localAddr, localUsername, localPassword}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -48,7 +48,7 @@ func TestRunErrorWithMockFactory(t *testing.T) {
 
 	localAddr := fmt.Sprintf("-localAddress=%s", config.URL)
 
-	args := []string{"-cacert=main_test.go", "-logFile=", localAddr}
+	args := []string{"-caCert=main_test.go", "-logFile=", localAddr}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
