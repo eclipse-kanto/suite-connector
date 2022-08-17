@@ -101,7 +101,7 @@ func (settings *Settings) ValidateStatic() error {
 				return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
 			}
 		} else {
-			return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
+			return errors.New("cannot use secure connection when the CA certificate file is not provided")
 		}
 	}
 
