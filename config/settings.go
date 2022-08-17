@@ -14,6 +14,7 @@ package config
 import (
 	"encoding/json"
 	"io/ioutil"
+	"net/url"
 	"reflect"
 
 	"github.com/ThreeDotsLabs/watermill/message"
@@ -90,8 +91,18 @@ func (settings *Settings) ValidateStatic() error {
 		return err
 	}
 
-	if len(settings.CACert) > 0 && !util.FileExists(settings.CACert) {
-		return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
+	u, err := url.ParseRequestURI(settings.Address)
+	if err != nil {
+		return err
+	}
+	if isConnectionSecure(u.Scheme) {
+		if len(settings.CACert) > 0 {
+			if !util.FileExists(settings.CACert) {
+				return errors.Errorf("failed to read CA certificate file '%s'", settings.CACert)
+			}
+		} else {
+			return errors.New("cannot use secure connection when the CA certificate file is not provided")
+		}
 	}
 
 	if len(settings.DeviceIDPattern) > 0 {
