@@ -1,7 +1,7 @@
 {
 	"deviceId": "config:deviceId",
 	"policyId": "policyId_config",
-	"cacert": "",
+	"caCert": "",
 	"localUsername": "localUsername_config",
 	"localPassword": "localPassword_config",
 	"logFile": "logFile_config",

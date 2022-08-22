@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	flagCACert = "cacert"
+	flagCACert = "caCert"
 )
 
 var (

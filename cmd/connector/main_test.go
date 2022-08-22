@@ -35,7 +35,7 @@ func TestRunWithInvalidConfigFile(t *testing.T) {
 }
 
 func TestRunWithNoCA(t *testing.T) {
-	args := []string{"-cacert=invalid.crt"}
+	args := []string{"-caCert=invalid.crt"}
 
 	require.Error(t, run(context.Background(), app.NewMockLauncher, args))
 }

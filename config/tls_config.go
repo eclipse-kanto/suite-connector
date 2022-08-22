@@ -31,7 +31,7 @@ func noClean() {
 
 // TLSSettings represents the TLS configuration data.
 type TLSSettings struct {
-	CACert string `json:"cacert"`
+	CACert string `json:"caCert"`
 
 	Cert string `json:"cert"`
 	Key  string `json:"key"`
