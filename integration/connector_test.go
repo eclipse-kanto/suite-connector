@@ -277,18 +277,18 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 	eventCh := suite.beginWSWait(ws, func(payload []byte) bool {
 		props := make(map[string]interface{})
 
-		if err := json.Unmarshal(payload, &props); err == nil {
+		err := json.Unmarshal(payload, &props)
+		if err == nil {
 			suite.T().Logf("event received: %v", props)
 
 			return props["topic"] == fmt.Sprintf("%s/%s/things/twin/events/modified", namespace.Namespace, namespace.Name) &&
 				props["path"] == fmt.Sprintf("/features/%s/properties/%s", featureName, propertyName) &&
 				props["value"] == newValue
 
-		} else {
-			suite.T().Logf("error while waiting for event: %v", err)
-
-			return false
 		}
+
+		suite.T().Logf("error while waiting for event: %v", err)
+		return false
 	})
 
 	err = suite.sendDittoEvent(channel, msg)
@@ -329,12 +329,13 @@ func (suite *ConnectorSuite) beginWSWait(ws *websocket.Conn, check func(payload 
 			var payload []byte
 			threshold := time.Now().Add(timeout)
 			for time.Now().Before(threshold) {
-				if err := websocket.Message.Receive(ws, &payload); err == nil && check(payload) {
+				err := websocket.Message.Receive(ws, &payload)
+				if err == nil && check(payload) {
 					resultCh <- true
 					return
-				} else {
-					suite.T().Logf("error while waiting for WS message: %v", err)
 				}
+
+				suite.T().Logf("error while waiting for WS message: %v", err)
 			}
 
 			suite.T().Logf("WS response not received in %v", timeout)
