@@ -45,6 +45,8 @@ type testConfig struct {
 	DittoPassword string `def:"ditto"`
 
 	EventTimeoutMs int `def:"30000"`
+
+	TimeDeltaMS int `def:"5000"`
 }
 
 type thingConfig struct {
@@ -204,8 +206,12 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 	err = json.Unmarshal(body, status)
 	require.NoError(suite.T(), err, "connection status should be parsed")
 
-	require.True(suite.T(), time.Now().After(status.ReadySince), "readySince should be BEFORE current time")
-	require.True(suite.T(), time.Now().Before(status.ReadyUntil), "readyUntil should be AFTER current time")
+	suite.T().Logf("%+v", status)
+	suite.T().Logf("current time: %v", time.Now())
+
+	delta := int64(suite.cfg.TimeDeltaMS)
+	assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be BEFORE current time")
+	assert.Greater(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()-delta, "readyUntil should be AFTER current time")
 }
 
 func (suite *ConnectorSuite) TestCommand() {
