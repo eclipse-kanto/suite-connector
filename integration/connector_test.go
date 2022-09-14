@@ -46,7 +46,7 @@ type testConfig struct {
 
 	EventTimeoutMs int `def:"30000"`
 
-	TimeDeltaMS int `def:"5000"`
+	TimeDeltaMs int `def:"5000"`
 }
 
 type thingConfig struct {
@@ -209,7 +209,7 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 	suite.T().Logf("%+v", status)
 	suite.T().Logf("current time: %v", time.Now())
 
-	delta := int64(suite.cfg.TimeDeltaMS)
+	delta := int64(suite.cfg.TimeDeltaMs)
 	assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be BEFORE current time")
 	assert.Greater(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()-delta, "readyUntil should be AFTER current time")
 }
