@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -38,8 +39,7 @@ type testConfig struct {
 	MqttQuiesceMs            int    `def:"500"`
 	MqttAcknowledgeTimeoutMs int    `def:"3000"`
 
-	DittoHost string
-	DittoPort int
+	DittoAddress string
 
 	DittoUser     string `def:"ditto"`
 	DittoPassword string `def:"ditto"`
@@ -175,7 +175,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 	suite.cfg = cfg
 	suite.thingCfg = thingCfg
 
-	suite.thingURL = fmt.Sprintf("http://%s:%d/api/2/things/%s", cfg.DittoHost, cfg.DittoPort, thingCfg.DeviceID)
+	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DittoAddress, "/"), thingCfg.DeviceID)
 	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureName)
 }
 
@@ -362,8 +362,13 @@ func (suite *ConnectorSuite) beginWSWait(ws *websocket.Conn, check func(payload 
 }
 
 func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
-	url := fmt.Sprintf("ws://%s:%d/ws/2", suite.cfg.DittoHost, suite.cfg.DittoPort)
-	cfg, err := websocket.NewConfig(url, url)
+	wsAddress, err := asWSAddress(suite.cfg.DittoAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/ws/2", wsAddress)
+	cfg, err := websocket.NewConfig(url, suite.cfg.DittoAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -375,6 +380,19 @@ func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
 	}
 
 	return websocket.DialConfig(cfg)
+}
+
+func asWSAddress(address string) (string, error) {
+	url, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+
+	if url.Scheme == "https" {
+		return fmt.Sprintf("wss://%s:%s", url.Hostname(), url.Port()), nil
+	}
+
+	return fmt.Sprintf("ws://%s:%s", url.Hostname(), url.Port()), nil
 }
 
 func (suite *ConnectorSuite) doRequest(method string, url string) ([]byte, error) {
