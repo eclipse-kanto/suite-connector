@@ -5,9 +5,10 @@
 //
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
-// http://www.eclipse.org/legal/epl-2.0
+// https://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+// which is available at https://www.apache.org/licenses/LICENSE-2.0.
 //
-// SPDX-License-Identifier: EPL-2.0
+// SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
 package integration
 
@@ -82,7 +83,7 @@ type ConnectorSuite struct {
 
 const (
 	envVariablesPrefix    = "SCT"
-	featureName           = "ConnectorTestFeature"
+	featureID             = "ConnectorTestFeature"
 	propertyName          = "testProperty"
 	commandName           = "testCommand"
 	commandResponseFormat = "response[%s]"
@@ -133,7 +134,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 	feature := &model.Feature{}
 	feature.WithProperty(propertyName, "testValue")
 
-	cmd := things.NewCommand(model.NewNamespacedIDFrom(thingCfg.DeviceID)).Twin().Feature(featureName).
+	cmd := things.NewCommand(model.NewNamespacedIDFrom(thingCfg.DeviceID)).Twin().Feature(featureID).
 		Modify(feature)
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
@@ -141,7 +142,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 	require.NoError(suite.T(), err, "create test feature")
 
 	dittoClient.Subscribe(func(requestID string, msg *protocol.Envelope) {
-		if msg.Path != fmt.Sprintf("/features/%s/inbox/messages/%s", featureName, commandName) {
+		if msg.Path != fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
 			suite.T().Logf("unexpected command: %s", msg.Path)
 			return
 		}
@@ -162,7 +163,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 			Headers: headers,
 			Path:    strings.Replace(msg.Path, "/inbox/", "/outbox/", 1),
 			Value:   response,
-			Status:  http.StatusNoContent,
+			Status:  http.StatusOK,
 		}
 
 		if err := dittoClient.Reply(requestID, reply); err != nil {
@@ -176,7 +177,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 	suite.thingCfg = thingCfg
 
 	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DittoAddress, "/"), thingCfg.DeviceID)
-	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureName)
+	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
 }
 
 func (suite *ConnectorSuite) TearDownSuite() {
@@ -211,7 +212,9 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 
 	delta := int64(suite.cfg.TimeDeltaMs)
 	assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be BEFORE current time")
-	assert.Greater(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()-delta, "readyUntil should be AFTER current time")
+
+	forever := time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
+	assert.Equal(suite.T(), status.ReadyUntil, forever, "readyUntil should be %v", forever)
 }
 
 func (suite *ConnectorSuite) TestCommand() {
@@ -221,7 +224,7 @@ func (suite *ConnectorSuite) TestCommand() {
 	cmd := commandPayload{}
 	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
 	cmd.Topic = fmt.Sprintf("%s/%s/things/live/messages/%s", namespace.Namespace, namespace.Name, commandName)
-	cmd.Path = fmt.Sprintf("/features/%s/inbox/messages/%s", featureName, commandName)
+	cmd.Path = fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName)
 	cmd.Value = "request"
 
 	correlationID := uuid.New().String()
@@ -237,7 +240,7 @@ func (suite *ConnectorSuite) TestCommand() {
 		path := strings.ReplaceAll(cmd.Path, "inbox", "outbox")
 		assert.Equal(suite.T(), path, resp.Path)
 		assert.Equal(suite.T(), cmd.Topic, resp.Topic)
-		assert.Equal(suite.T(), resp.Status, http.StatusNoContent)
+		assert.Equal(suite.T(), resp.Status, http.StatusOK)
 		assert.Equal(suite.T(), fmt.Sprintf(commandResponseFormat, cmd.Value), resp.Value)
 
 		return true
@@ -267,7 +270,7 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 		return ack == subAck
 	})
 
-	sub := fmt.Sprintf("START-SEND-EVENTS?filter=like(resource:path,'/features/%s/*')", featureName)
+	sub := fmt.Sprintf("START-SEND-EVENTS?filter=like(resource:path,'/features/%s/*')", featureID)
 	err = websocket.Message.Send(ws, sub)
 	require.NoError(suite.T(), err)
 
@@ -276,7 +279,7 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 
 	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
 	cmd := things.NewCommand(namespace).Twin().
-		FeatureProperty(featureName, propertyName).Modify(newValue)
+		FeatureProperty(featureID, propertyName).Modify(newValue)
 
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
@@ -288,7 +291,7 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 			suite.T().Logf("event received: %v", props)
 
 			return props["topic"] == fmt.Sprintf("%s/%s/things/twin/events/modified", namespace.Namespace, namespace.Name) &&
-				props["path"] == fmt.Sprintf("/features/%s/properties/%s", featureName, propertyName) &&
+				props["path"] == fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName) &&
 				props["value"] == newValue
 
 		}
@@ -443,6 +446,6 @@ func getThingConfig(mqttClient mqtt.Client) (*thingConfig, error) {
 	case result := <-ch:
 		return result.cfg, result.err
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("thing confing not received in %v", timeout)
+		return nil, fmt.Errorf("thing config not received in %v", timeout)
 	}
 }
