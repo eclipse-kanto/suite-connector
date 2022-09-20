@@ -200,7 +200,7 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 		ReadyUntil time.Time `json:"readyUntil"`
 	}
 
-	timeout := time.Duration(suite.cfg.StatusTimeoutMS * int(time.Millisecond))
+	timeout := time.Duration(suite.cfg.StatusTimeoutMs * int(time.Millisecond))
 	threshold := time.Now().Add(timeout)
 
 	for {
