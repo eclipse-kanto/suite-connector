@@ -45,7 +45,8 @@ type testConfig struct {
 	DittoUser     string `def:"ditto"`
 	DittoPassword string `def:"ditto"`
 
-	EventTimeoutMs int `def:"30000"`
+	EventTimeoutMs  int `def:"30000"`
+	StatusTimeoutMs int `def:"10000"`
 
 	TimeDeltaMs int `def:"5000"`
 }
@@ -194,27 +195,45 @@ func TestConnectorSuite(t *testing.T) {
 }
 
 func (suite *ConnectorSuite) TestConnectionStatus() {
-	statusURL := fmt.Sprintf("%s/features/ConnectionStatus/properties/status", suite.thingURL)
-	body, err := suite.doRequest("GET", statusURL)
-	require.NoError(suite.T(), err, "connection status property should be available")
-
 	type connectionStatus struct {
 		ReadySince time.Time `json:"readySince"`
 		ReadyUntil time.Time `json:"readyUntil"`
 	}
 
-	status := &connectionStatus{}
-	err = json.Unmarshal(body, status)
-	require.NoError(suite.T(), err, "connection status should be parsed")
+	timeout := time.Duration(suite.cfg.StatusTimeoutMS * int(time.Millisecond))
+	threshold := time.Now().Add(timeout)
 
-	suite.T().Logf("%+v", status)
-	suite.T().Logf("current time: %v", time.Now())
+	for {
+		statusURL := fmt.Sprintf("%s/features/ConnectionStatus/properties/status", suite.thingURL)
+		body, err := suite.doRequest("GET", statusURL)
+		if err != nil {
+			if time.Now().Before(threshold) {
+				continue
+			}
+			suite.T().Errorf("connection status property not available: %v", err)
+			break
+		}
 
-	delta := int64(suite.cfg.TimeDeltaMs)
-	assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be BEFORE current time")
+		status := &connectionStatus{}
+		err = json.Unmarshal(body, status)
+		require.NoError(suite.T(), err, "connection status should be parsed")
 
-	forever := time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
-	assert.Equal(suite.T(), status.ReadyUntil, forever, "readyUntil should be %v", forever)
+		suite.T().Logf("%+v", status)
+		suite.T().Logf("current time: %v", time.Now())
+
+		forever := time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
+		if status.ReadyUntil != forever {
+			if time.Now().Before(threshold) {
+				continue
+			}
+			suite.T().Errorf("readyUntil should be %v", forever)
+			break
+		}
+
+		delta := int64(suite.cfg.TimeDeltaMs)
+		assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be BEFORE current time")
+		break
+	}
 }
 
 func (suite *ConnectorSuite) TestCommand() {
