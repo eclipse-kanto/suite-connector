@@ -238,6 +238,7 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 
 func (suite *ConnectorSuite) TestCommand() {
 	ws, err := suite.newWSConnection()
+	require.NoError(suite.T(), err)
 	defer ws.Close()
 
 	cmd := commandPayload{}
@@ -281,6 +282,7 @@ func (suite *ConnectorSuite) TestTelemetry() {
 
 func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 	ws, err := suite.newWSConnection()
+	require.NoError(suite.T(), err)
 	defer ws.Close()
 
 	const subAck = "START-SEND-EVENTS:ACK"
