@@ -87,6 +87,9 @@ const (
 	propertyName          = "testProperty"
 	commandName           = "testCommand"
 	commandResponseFormat = "response[%s]"
+	https                 = "https"
+	httpsDefaultPort      = "443"
+	httpDefaultPort       = "80"
 )
 
 func (suite *ConnectorSuite) SetupSuite() {
@@ -406,17 +409,28 @@ func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
 	return websocket.DialConfig(cfg)
 }
 
+func getPortOrDefault(url *url.URL) string {
+	port := url.Port()
+	if port == "" {
+		if url.Scheme == https {
+			return httpsDefaultPort
+		}
+		return httpDefaultPort
+	}
+	return port
+}
+
 func asWSAddress(address string) (string, error) {
 	url, err := url.Parse(address)
 	if err != nil {
 		return "", err
 	}
 
-	if url.Scheme == "https" {
-		return fmt.Sprintf("wss://%s:%s", url.Hostname(), url.Port()), nil
+	if url.Scheme == https {
+		return fmt.Sprintf("wss://%s:%s", url.Hostname(), getPortOrDefault(url)), nil
 	}
 
-	return fmt.Sprintf("ws://%s:%s", url.Hostname(), url.Port()), nil
+	return fmt.Sprintf("ws://%s:%s", url.Hostname(), getPortOrDefault(url)), nil
 }
 
 func (suite *ConnectorSuite) doRequest(method string, url string) ([]byte, error) {
