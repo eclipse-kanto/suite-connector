@@ -83,7 +83,6 @@ type ConnectorSuite struct {
 }
 
 const (
-	envVariablesPrefix    = "SCT"
 	featureID             = "ConnectorTestFeature"
 	propertyName          = "testProperty"
 	commandName           = "testCommand"
@@ -93,9 +92,9 @@ const (
 func (suite *ConnectorSuite) SetupSuite() {
 	cfg := &testConfig{}
 
-	suite.T().Log(getConfigHelp(*cfg, envVariablesPrefix))
+	suite.T().Log(getConfigHelp(*cfg))
 
-	if err := initConfigFromEnv(cfg, envVariablesPrefix); err != nil {
+	if err := initConfigFromEnv(cfg); err != nil {
 		suite.T().Fail()
 		suite.T().Fatal(err)
 	}
