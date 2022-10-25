@@ -96,7 +96,8 @@ func (suite *ConnectorSuite) SetupSuite() {
 	suite.T().Log(getConfigHelp(*cfg, envVariablesPrefix))
 
 	if err := initConfigFromEnv(cfg, envVariablesPrefix); err != nil {
-		suite.T().Skip(err)
+		suite.T().Fail()
+		suite.T().Fatal(err)
 	}
 
 	suite.T().Logf("test config: %+v", *cfg)
