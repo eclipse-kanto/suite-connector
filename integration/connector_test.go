@@ -10,6 +10,9 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
+//go:build e2einttest
+// +build e2einttest
+
 package integration
 
 import (
