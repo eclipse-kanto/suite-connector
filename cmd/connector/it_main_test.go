@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-//go:build (localintegration && ignore) || !unit
+//go:build (local_integration && ignore) || !unit
 
 package main
 
