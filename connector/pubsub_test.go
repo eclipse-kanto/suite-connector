@@ -679,11 +679,16 @@ func TestSimpleDelivery(t *testing.T) {
 }
 
 type connectionEventListener struct {
-	events chan<- bool
+	connectEvents    chan<- bool
+	disconnectEvents chan<- bool
 }
 
 func (h *connectionEventListener) Connected(connected bool, err error) {
-	h.events <- connected
+	if connected {
+		h.connectEvents <- connected
+	} else {
+		h.disconnectEvents <- connected
+	}
 }
 
 func TestConnectionEvents(t *testing.T) {
@@ -695,18 +700,22 @@ func TestConnectionEvents(t *testing.T) {
 	client, err := conn.NewMQTTConnection(config, watermill.NewShortUUID(), nil)
 	require.NoError(t, err)
 
-	events := make(chan bool, 8)
+	connectEvents := make(chan bool, 2)
+	disconnectEvents := make(chan bool, 2)
+
 	l1 := &connectionEventListener{
-		events: events,
+		connectEvents:    connectEvents,
+		disconnectEvents: disconnectEvents,
 	}
 	client.AddConnectionListener(l1)
+	client.AddConnectionListener(l1)
+	client.RemoveConnectionListener(l1)
 
 	l2 := &connectionEventListener{
-		events: events,
+		connectEvents:    connectEvents,
+		disconnectEvents: disconnectEvents,
 	}
 	client.AddConnectionListener(l2)
-	client.AddConnectionListener(l2)
-	client.RemoveConnectionListener(l2)
 
 	future := client.Connect()
 	<-future.Done()
@@ -714,9 +723,9 @@ func TestConnectionEvents(t *testing.T) {
 	client.Disconnect()
 
 	//Check for connected event
-	assert.True(t, <-events)
+	assert.True(t, <-connectEvents)
 	//Check for disconnected event
-	assert.False(t, <-events)
+	assert.False(t, <-disconnectEvents)
 }
 
 func TestMarshalError(t *testing.T) {
