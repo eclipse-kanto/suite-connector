@@ -208,7 +208,7 @@ func ParamsBus(router *message.Router,
 // CreateServiceRouter creates the service router.
 func CreateServiceRouter(localClient *connector.MQTTConnection,
 	manager connector.SubscriptionManager,
-	logger logger.Logger,
+	logger watermill.LoggerAdapter,
 ) *message.Router {
 
 	router, _ := message.NewRouter(message.RouterConfig{}, logger)
