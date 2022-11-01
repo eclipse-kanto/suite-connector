@@ -42,10 +42,10 @@ type testConfig struct {
 	MqttQuiesceMs            int    `def:"500"`
 	MqttAcknowledgeTimeoutMs int    `def:"3000"`
 
-	DittoAddress string
+	DigitalTwinApiAddress string
 
-	DittoUser     string `def:"ditto"`
-	DittoPassword string `def:"ditto"`
+	DigitalTwinApiUser     string `def:"ditto"`
+	DigitalTwinApiPassword string `def:"ditto"`
 
 	EventTimeoutMs  int `def:"30000"`
 	StatusTimeoutMs int `def:"10000"`
@@ -182,7 +182,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 	suite.cfg = cfg
 	suite.thingCfg = thingCfg
 
-	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DittoAddress, "/"), thingCfg.DeviceID)
+	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DigitalTwinApiAddress, "/"), thingCfg.DeviceID)
 	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
 }
 
@@ -391,18 +391,18 @@ func (suite *ConnectorSuite) beginWSWait(ws *websocket.Conn, check func(payload 
 }
 
 func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
-	wsAddress, err := asWSAddress(suite.cfg.DittoAddress)
+	wsAddress, err := asWSAddress(suite.cfg.DigitalTwinApiAddress)
 	if err != nil {
 		return nil, err
 	}
 
 	url := fmt.Sprintf("%s/ws/2", wsAddress)
-	cfg, err := websocket.NewConfig(url, suite.cfg.DittoAddress)
+	cfg, err := websocket.NewConfig(url, suite.cfg.DigitalTwinApiAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	auth := fmt.Sprintf("%s:%s", suite.cfg.DittoUser, suite.cfg.DittoPassword)
+	auth := fmt.Sprintf("%s:%s", suite.cfg.DigitalTwinApiUser, suite.cfg.DigitalTwinApiPassword)
 	enc := base64.StdEncoding.EncodeToString([]byte(auth))
 	cfg.Header = http.Header{
 		"Authorization": {"Basic " + enc},
@@ -441,7 +441,7 @@ func (suite *ConnectorSuite) doRequest(method string, url string) ([]byte, error
 		return nil, err
 	}
 
-	req.SetBasicAuth(suite.cfg.DittoUser, suite.cfg.DittoPassword)
+	req.SetBasicAuth(suite.cfg.DigitalTwinApiUser, suite.cfg.DigitalTwinApiPassword)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
