@@ -59,18 +59,6 @@ type thingConfig struct {
 	PolicyID string `json:"policyId"`
 }
 
-type commandPayload struct {
-	Topic   string                 `json:"topic"`
-	Headers map[string]interface{} `json:"headers"`
-	Path    string                 `json:"path"`
-	Value   string                 `json:"value"`
-}
-
-type commandResponsePayload struct {
-	commandPayload
-	Status int `json:"status"`
-}
-
 type ConnectorSuite struct {
 	suite.Suite
 
@@ -85,13 +73,13 @@ type ConnectorSuite struct {
 }
 
 const (
-	featureID             = "ConnectorTestFeature"
-	propertyName          = "testProperty"
-	commandName           = "testCommand"
-	commandResponseFormat = "response[%s]"
-	https                 = "https"
-	httpsDefaultPort      = "443"
-	httpDefaultPort       = "80"
+	featureID               = "ConnectorTestFeature"
+	propertyName            = "testProperty"
+	commandName             = "testCommand"
+	responsePayloadTemplate = "responsePayload: %s"
+	https                   = "https"
+	httpsDefaultPort        = "443"
+	httpDefaultPort         = "80"
 )
 
 func (suite *ConnectorSuite) SetupSuite() {
@@ -147,33 +135,26 @@ func (suite *ConnectorSuite) SetupSuite() {
 	require.NoError(suite.T(), err, "create test feature")
 
 	dittoClient.Subscribe(func(requestID string, msg *protocol.Envelope) {
-		if msg.Path != fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
-			// It is possible to receive other commands.
-			// Don't fail the test if that is the case.
-			suite.T().Logf("unexpected command: %s\n", msg.Path)
-			return
-		}
-
-		headers := protocol.NewHeaders(protocol.WithCorrelationID(msg.Headers.CorrelationID()),
-			protocol.WithContentType("application/json"))
-
-		value, ok := msg.Value.(string)
-		if !ok {
-			suite.T().Fatalf("unexpected message payload: %v, %T\n", msg.Value, msg.Value)
-		}
-
-		response := fmt.Sprintf(commandResponseFormat, value)
-
-		reply := &protocol.Envelope{
-			Topic:   msg.Topic,
-			Headers: headers,
-			Path:    strings.Replace(msg.Path, "/inbox/", "/outbox/", 1),
-			Value:   response,
-			Status:  http.StatusOK,
-		}
-
-		if err := dittoClient.Reply(requestID, reply); err != nil {
-			suite.T().Fatalf("failed to send response: %v\n", err)
+		if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
+			value, ok := msg.Value.(string)
+			if !ok {
+				suite.T().Fatalf("unexpected message payload: %v, %T\n", msg.Value, msg.Value)
+			}
+			responsePayload := fmt.Sprintf(responsePayloadTemplate, value)
+			response := things.NewMessage(model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityName))
+			// respond to the message by using the outbox
+			path := strings.Replace(msg.Path, "/inbox/", "/outbox/", 1)
+			responseMsg := response.Envelope(
+				protocol.WithCorrelationID(msg.Headers.CorrelationID()),
+				protocol.WithResponseRequired(false),
+				protocol.WithContentType("application/json")).
+				WithTopic(msg.Topic).
+				WithPath(path).
+				WithValue(responsePayload).
+				WithStatus(http.StatusOK)
+			if err := dittoClient.Reply(requestID, responseMsg); err != nil {
+				suite.T().Fatalf("failed to send response: %v\n", err)
+			}
 		}
 	})
 
@@ -236,45 +217,54 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 		}
 
 		delta := int64(suite.cfg.TimeDeltaMs)
-		assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be BEFORE current time")
+		assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be before current time")
 		break
 	}
 }
 
 func (suite *ConnectorSuite) TestCommand() {
 	ws, err := suite.newWSConnection()
-	require.NoError(suite.T(), err)
+	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
 
-	cmd := commandPayload{}
 	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
-	cmd.Topic = fmt.Sprintf("%s/%s/things/live/messages/%s", namespace.Namespace, namespace.Name, commandName)
+	cmd := things.NewCommand(namespace)
+	setCommandTopic(suite, cmd, namespace)
 	cmd.Path = fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName)
-	cmd.Value = "request"
-
+	cmd.Payload = "request"
 	correlationID := uuid.New().String()
-	cmd.Headers = map[string]interface{}{"content-type": "text/plain", "correlation-id": correlationID}
+	cmdMsg := cmd.Envelope(
+		protocol.WithCorrelationID(correlationID),
+		protocol.WithContentType("text/plain"))
 
 	respCh := suite.beginWSWait(ws, func(payload []byte) bool {
-		resp := &commandResponsePayload{}
-		if err := json.Unmarshal(payload, resp); err != nil {
+		respMsg := &protocol.Envelope{}
+		if err := json.Unmarshal(payload, respMsg); err != nil {
 			suite.T().Error(err)
 			return true
 		}
 
-		path := strings.ReplaceAll(cmd.Path, "inbox", "outbox")
-		assert.Equal(suite.T(), path, resp.Path)
-		assert.Equal(suite.T(), cmd.Topic, resp.Topic)
-		assert.Equal(suite.T(), resp.Status, http.StatusOK)
-		assert.Equal(suite.T(), fmt.Sprintf(commandResponseFormat, cmd.Value), resp.Value)
+		expectedPath := strings.ReplaceAll(cmd.Path, "inbox", "outbox")
+		assert.Equal(suite.T(), expectedPath, respMsg.Path, "expected response path")
+		assert.Equal(suite.T(), *cmd.Topic, *respMsg.Topic, "expected topic")
+		assert.Equal(suite.T(), respMsg.Status, http.StatusOK, "expected http ok")
+		assert.Equal(suite.T(), fmt.Sprintf(responsePayloadTemplate, cmd.Payload), respMsg.Value, "expected response payload")
 
 		return true
 	})
 
-	err = websocket.JSON.Send(ws, cmd)
-	require.NoError(suite.T(), err)
+	err = websocket.JSON.Send(ws, cmdMsg)
+	require.NoError(suite.T(), err, "unable to send command to the backend via websocket")
 
 	require.True(suite.T(), <-respCh, "command response should be received")
+}
+
+func setCommandTopic(suite *ConnectorSuite, cmd *things.Command, namespace *model.NamespacedID) {
+	topic := &protocol.Topic{}
+	topicStr := fmt.Sprintf("%s/%s/things/live/messages/%s", namespace.Namespace, namespace.Name, commandName)
+	err := topic.UnmarshalJSON([]byte("\"" + topicStr + "\""))
+	require.NoError(suite.T(), err, "unable to create topic for command test")
+	cmd.Topic = topic
 }
 
 func (suite *ConnectorSuite) TestEvent() {
@@ -287,7 +277,7 @@ func (suite *ConnectorSuite) TestTelemetry() {
 
 func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 	ws, err := suite.newWSConnection()
-	require.NoError(suite.T(), err)
+	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
 
 	const subAck = "START-SEND-EVENTS:ACK"
@@ -298,7 +288,7 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 
 	sub := fmt.Sprintf("START-SEND-EVENTS?filter=like(resource:path,'/features/%s/*')", featureID)
 	err = websocket.Message.Send(ws, sub)
-	require.NoError(suite.T(), err)
+	require.NoError(suite.T(), err, "unable to listen for events by using a websocket connection")
 
 	ok := <-ackCh
 	require.True(suite.T(), ok, "acknowledgement %v should be received", subAck)
@@ -328,13 +318,13 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 
 	err = suite.sendDittoEvent(channel, msg)
 
-	require.NoError(suite.T(), err)
+	require.NoError(suite.T(), err, "unable to send event to the backend")
 
 	require.True(suite.T(), <-eventCh, "property changed event should be received")
 
 	propertyURL := fmt.Sprintf("%s/properties/%s", suite.featureURL, propertyName)
 	body, err := suite.doRequest("GET", propertyURL)
-	require.NoError(suite.T(), err)
+	require.NoError(suite.T(), err, "unable to get feature property")
 
 	assert.Equal(suite.T(), fmt.Sprintf("\"%s\"", newValue), strings.TrimSpace(string(body)), "property value updated")
 }
