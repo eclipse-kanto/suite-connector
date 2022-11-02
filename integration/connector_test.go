@@ -148,7 +148,10 @@ func (suite *ConnectorSuite) SetupSuite() {
 
 	dittoClient.Subscribe(func(requestID string, msg *protocol.Envelope) {
 		if msg.Path != fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
-			suite.T().Fatalf("unexpected command: %s\n", msg.Path)
+			// It is possible to receive other commands.
+			// Don't fail the test if that is the case.
+			suite.T().Logf("unexpected command: %s\n", msg.Path)
+			return
 		}
 
 		headers := protocol.NewHeaders(protocol.WithCorrelationID(msg.Headers.CorrelationID()),
