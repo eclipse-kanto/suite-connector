@@ -29,7 +29,7 @@ import (
 	"github.com/eclipse/ditto-clients-golang/model"
 	"github.com/eclipse/ditto-clients-golang/protocol"
 	"github.com/eclipse/ditto-clients-golang/protocol/things"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,7 +74,7 @@ type commandResponsePayload struct {
 type ConnectorSuite struct {
 	suite.Suite
 
-	mqttClient  mqtt.Client
+	mqttClient  MQTT.Client
 	dittoClient *ditto.Client
 
 	cfg      *testConfig
@@ -100,20 +100,19 @@ func (suite *ConnectorSuite) SetupSuite() {
 	suite.T().Log(getConfigHelp(*cfg))
 
 	if err := initConfigFromEnv(cfg); err != nil {
-		suite.T().Fail()
 		suite.T().Fatal(err)
 	}
 
 	suite.T().Logf("test config: %+v", *cfg)
 
-	opts := mqtt.NewClientOptions().
+	opts := MQTT.NewClientOptions().
 		AddBroker(cfg.Broker).
 		SetClientID(uuid.New().String()).
 		SetKeepAlive(30 * time.Second).
 		SetCleanSession(true).
 		SetAutoReconnect(true)
 
-	mqttClient := mqtt.NewClient(opts)
+	mqttClient := MQTT.NewClient(opts)
 
 	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		require.NoError(suite.T(), token.Error(), "connect to MQTT broker")
@@ -149,8 +148,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 
 	dittoClient.Subscribe(func(requestID string, msg *protocol.Envelope) {
 		if msg.Path != fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
-			suite.T().Logf("unexpected command: %s", msg.Path)
-			return
+			suite.T().Fatalf("unexpected command: %s\n", msg.Path)
 		}
 
 		headers := protocol.NewHeaders(protocol.WithCorrelationID(msg.Headers.CorrelationID()),
@@ -158,8 +156,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 
 		value, ok := msg.Value.(string)
 		if !ok {
-			suite.T().Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)
-			return
+			suite.T().Fatalf("unexpected message payload: %v, %T\n", msg.Value, msg.Value)
 		}
 
 		response := fmt.Sprintf(commandResponseFormat, value)
@@ -173,7 +170,7 @@ func (suite *ConnectorSuite) SetupSuite() {
 		}
 
 		if err := dittoClient.Reply(requestID, reply); err != nil {
-			suite.T().Error("failed to send response:", err)
+			suite.T().Fatalf("failed to send response: %v\n", err)
 		}
 	})
 
@@ -411,13 +408,10 @@ func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
 	return websocket.DialConfig(cfg)
 }
 
-func getPortOrDefault(url *url.URL) string {
+func getPortOrDefault(url *url.URL, defaultPort string) string {
 	port := url.Port()
 	if port == "" {
-		if url.Scheme == https {
-			return httpsDefaultPort
-		}
-		return httpDefaultPort
+		return defaultPort
 	}
 	return port
 }
@@ -429,10 +423,10 @@ func asWSAddress(address string) (string, error) {
 	}
 
 	if url.Scheme == https {
-		return fmt.Sprintf("wss://%s:%s", url.Hostname(), getPortOrDefault(url)), nil
+		return fmt.Sprintf("wss://%s:%s", url.Hostname(), getPortOrDefault(url, httpsDefaultPort)), nil
 	}
 
-	return fmt.Sprintf("ws://%s:%s", url.Hostname(), getPortOrDefault(url)), nil
+	return fmt.Sprintf("ws://%s:%s", url.Hostname(), getPortOrDefault(url, httpDefaultPort)), nil
 }
 
 func (suite *ConnectorSuite) doRequest(method string, url string) ([]byte, error) {
@@ -456,7 +450,7 @@ func (suite *ConnectorSuite) doRequest(method string, url string) ([]byte, error
 	return io.ReadAll(resp.Body)
 }
 
-func getThingConfig(mqttClient mqtt.Client) (*thingConfig, error) {
+func getThingConfig(mqttClient MQTT.Client) (*thingConfig, error) {
 	type result struct {
 		cfg *thingConfig
 		err error
@@ -464,7 +458,7 @@ func getThingConfig(mqttClient mqtt.Client) (*thingConfig, error) {
 
 	ch := make(chan result)
 
-	if token := mqttClient.Subscribe("edge/thing/response", 1, func(client mqtt.Client, message mqtt.Message) {
+	if token := mqttClient.Subscribe("edge/thing/response", 1, func(client MQTT.Client, message MQTT.Message) {
 		var cfg thingConfig
 		if err := json.Unmarshal(message.Payload(), &cfg); err != nil {
 			ch <- result{nil, err}
