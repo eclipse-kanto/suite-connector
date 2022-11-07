@@ -30,10 +30,8 @@ import (
 
 	"github.com/eclipse-kanto/suite-connector/connector"
 	"github.com/eclipse-kanto/suite-connector/logger"
-
-	"github.com/eclipse-kanto/suite-connector/testutil"
-
 	"github.com/eclipse-kanto/suite-connector/routing"
+	"github.com/eclipse-kanto/suite-connector/testutil"
 )
 
 func TestNotifyListeners(t *testing.T) {
@@ -150,7 +148,7 @@ func TestParamsBus(t *testing.T) {
 }
 
 func TestServiceRouter(t *testing.T) {
-	logger := testutil.NewLogger("testing", logger.DEBUG, t)
+	logger := watermill.NopLogger{}
 
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
@@ -166,5 +164,6 @@ func TestServiceRouter(t *testing.T) {
 
 	manager := connector.NewSubscriptionManager()
 	r := routing.CreateServiceRouter(client, manager, logger)
-	defer r.Close()
+
+	assert.NoError(t, r.Close())
 }
