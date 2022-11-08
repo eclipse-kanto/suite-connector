@@ -217,7 +217,7 @@ func (suite *ConnectorSuite) TestCommand() {
 		if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
 			value, ok := msg.Value.(string)
 			if !ok {
-				commandResponseCh <- fmt.Errorf("unexpected message payload: %v, %T\n", msg.Value, msg.Value)
+				commandResponseCh <- fmt.Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)
 				return
 			}
 			responsePayload := fmt.Sprintf(responsePayloadTemplate, value)
@@ -233,7 +233,7 @@ func (suite *ConnectorSuite) TestCommand() {
 				WithValue(responsePayload).
 				WithStatus(http.StatusOK)
 			if err := suite.dittoClient.Reply(requestID, responseMsg); err != nil {
-				commandResponseCh <- fmt.Errorf("failed to send response: %v\n", err)
+				commandResponseCh <- fmt.Errorf("failed to send response: %v", err)
 				return
 			}
 			commandResponseCh <- nil
