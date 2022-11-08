@@ -234,6 +234,7 @@ func (suite *ConnectorSuite) TestCommand() {
 				WithStatus(http.StatusOK)
 			if err := suite.dittoClient.Reply(requestID, responseMsg); err != nil {
 				commandResponseCh <- fmt.Errorf("failed to send response: %v\n", err)
+				return
 			}
 			commandResponseCh <- nil
 		}
