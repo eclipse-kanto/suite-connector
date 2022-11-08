@@ -51,7 +51,8 @@ type testConfig struct {
 	EventTimeoutMs  int `def:"30000"`
 	StatusTimeoutMs int `def:"10000"`
 
-	TimeDeltaMs int `def:"5000"`
+	TimeDeltaMs int `def:"0"`
+	TimeSleepMs int `def:"2000"`
 }
 
 type thingConfig struct {
@@ -166,7 +167,13 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 	timeout := time.Duration(suite.cfg.StatusTimeoutMs * int(time.Millisecond))
 	threshold := time.Now().Add(timeout)
 
+	firstTime := true
+	sleepDuration := time.Duration(suite.cfg.TimeSleepMs * int(time.Millisecond))
 	for {
+		if !firstTime {
+			time.Sleep(sleepDuration)
+		}
+		firstTime = false
 		statusURL := fmt.Sprintf("%s/features/ConnectionStatus/properties/status", suite.thingURL)
 		body, err := suite.doRequest("GET", statusURL)
 		if err != nil {
@@ -234,13 +241,12 @@ func (suite *ConnectorSuite) TestCommand() {
 	suite.dittoClient.Subscribe(dittoHandler)
 	defer suite.dittoClient.Unsubscribe(dittoHandler)
 
-	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
-	cmd := things.NewCommand(namespace)
-	setCommandTopic(suite, cmd, namespace)
-	cmd.Path = fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName)
-	cmd.Payload = "request"
 	correlationID := uuid.New().String()
-	cmdMsg := cmd.Envelope(
+	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
+	cmdMsgEnvelope := things.NewMessage(namespace).
+		WithPayload("request").
+		Feature(featureID).
+		Inbox(commandName).Envelope(
 		protocol.WithCorrelationID(correlationID),
 		protocol.WithContentType("text/plain"))
 
@@ -257,37 +263,29 @@ func (suite *ConnectorSuite) TestCommand() {
 			return fmt.Errorf("unable to parse response payload as JSON: %v", err)
 		}
 
-		expectedPath := strings.ReplaceAll(cmd.Path, "inbox", "outbox")
+		expectedPath := strings.ReplaceAll(cmdMsgEnvelope.Path, "inbox", "outbox")
 		if err := checkEqual(expectedPath, respMsg.Path, "path"); err != nil {
 			return err
 		}
-		if err := checkEqual(*cmd.Topic, *respMsg.Topic, "topic"); err != nil {
+		if err := checkEqual(*cmdMsgEnvelope.Topic, *respMsg.Topic, "topic"); err != nil {
 			return err
 		}
 		if err := checkEqual(respMsg.Status, http.StatusOK, "http ok"); err != nil {
 			return err
 		}
-		if err := checkEqual(fmt.Sprintf(responsePayloadTemplate, cmd.Payload), respMsg.Value, "response payload"); err != nil {
+		if err := checkEqual(fmt.Sprintf(responsePayloadTemplate, cmdMsgEnvelope.Value.(string)), respMsg.Value, "response payload"); err != nil {
 			return err
 		}
 		return nil
 	})
 
-	err = websocket.JSON.Send(ws, cmdMsg)
+	err = websocket.JSON.Send(ws, cmdMsgEnvelope)
 	require.NoError(suite.T(), err, "unable to send command to the backend via websocket")
 
 	commandTimeout := time.Duration(suite.cfg.EventTimeoutMs * int(time.Millisecond))
 	timeoutCh := beginWait(commandTimeout, commandResponseCh, func() {})
 	require.NoError(suite.T(), <-timeoutCh, "command should be received and response should be sent")
 	require.NoError(suite.T(), <-respCh, "command response should be received")
-}
-
-func setCommandTopic(suite *ConnectorSuite, cmd *things.Command, namespace *model.NamespacedID) {
-	topic := &protocol.Topic{}
-	topicStr := fmt.Sprintf("%s/%s/things/live/messages/%s", namespace.Namespace, namespace.Name, commandName)
-	err := topic.UnmarshalJSON([]byte("\"" + topicStr + "\""))
-	require.NoError(suite.T(), err, "unable to create topic for command test")
-	cmd.Topic = topic
 }
 
 func (suite *ConnectorSuite) TestEvent() {
