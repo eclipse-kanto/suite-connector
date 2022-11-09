@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-//go:build integration
+//+go:build integration
 
 package integration
 
@@ -267,9 +267,22 @@ func (suite *ConnectorSuite) TestCommand() {
 	require.NoError(suite.T(), err, "unable to send command to the backend via websocket")
 
 	timeout := MillisToDuration(suite.cfg.EventTimeoutMs)
-	responseSentResult := WaitSubscribeResult(timeout, commandResponseCh, func() {})
-	require.Equal(suite.T(), ProcessWSMessageResult{true, nil}, responseSentResult, "command should be received and response should be sent")
 
+	// Check the sending of the response from the feature to the backend
+	var responseSentResult ProcessWSMessageResult
+	select {
+	case result := <-commandResponseCh:
+		responseSentResult = result
+	case <-time.After(timeout):
+		responseSentResult.Err = errors.New("timeout")
+	}
+	require.Equal(
+		suite.T(),
+		ProcessWSMessageResult{true, nil},
+		responseSentResult,
+		"command should be received and response should be sent")
+
+	// Check the response from the feature to the backend
 	result := ProcessWSMessages(timeout, ws, func(respMsg *protocol.Envelope) ProcessWSMessageResult {
 		expectedPath := strings.ReplaceAll(cmdMsgEnvelope.Path, "inbox", "outbox")
 		if err := checkEqual(expectedPath, respMsg.Path, "path"); err != nil {
@@ -409,27 +422,6 @@ func ProcessWSMessages(
 		result.Err = fmt.Errorf("not finished, expected WS response not received in %v, last error: %v", timeout, result.Err)
 	}
 	return result
-}
-
-func Subscribe(
-	timeout time.Duration,
-	ws *websocket.Conn,
-	process func(*protocol.Envelope) ProcessWSMessageResult) chan ProcessWSMessageResult {
-	responseCh := make(chan ProcessWSMessageResult)
-	go func() {
-		responseCh <- ProcessWSMessages(timeout, ws, process)
-	}()
-	return responseCh
-}
-
-func WaitSubscribeResult(timeout time.Duration, resultCh chan ProcessWSMessageResult, closer func()) ProcessWSMessageResult {
-	select {
-	case result := <-resultCh:
-		return result
-	case <-time.After(timeout):
-		closer()
-		return ProcessWSMessageResult{false, errors.New("timeout")}
-	}
 }
 
 func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
