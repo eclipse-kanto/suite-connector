@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -206,18 +207,22 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 	}
 }
 
+func MillisToDuration(millis int) time.Duration {
+	return time.Duration(millis * int(time.Millisecond))
+}
+
 func (suite *ConnectorSuite) TestCommand() {
 	ws, err := suite.newWSConnection()
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
 
-	commandResponseCh := make(chan error)
+	commandResponseCh := make(chan SubscribeResult)
 
 	dittoHandler := func(requestID string, msg *protocol.Envelope) {
 		if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
 			value, ok := msg.Value.(string)
 			if !ok {
-				commandResponseCh <- fmt.Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)
+				commandResponseCh <- SubscribeResult{false, fmt.Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)}
 				return
 			}
 			responsePayload := fmt.Sprintf(responsePayloadTemplate, value)
@@ -233,10 +238,10 @@ func (suite *ConnectorSuite) TestCommand() {
 				WithValue(responsePayload).
 				WithStatus(http.StatusOK)
 			if err := suite.dittoClient.Reply(requestID, responseMsg); err != nil {
-				commandResponseCh <- fmt.Errorf("failed to send response: %v", err)
+				commandResponseCh <- SubscribeResult{false, fmt.Errorf("failed to send response: %v", err)}
 				return
 			}
-			commandResponseCh <- nil
+			commandResponseCh <- SubscribeResult{true, nil}
 		}
 	}
 	suite.dittoClient.Subscribe(dittoHandler)
@@ -258,35 +263,32 @@ func (suite *ConnectorSuite) TestCommand() {
 		return nil
 	}
 
-	respCh := suite.beginWSWait(ws, func(payload []byte) error {
-		respMsg := &protocol.Envelope{}
-		if err := json.Unmarshal(payload, respMsg); err != nil {
-			return fmt.Errorf("unable to parse response payload as JSON: %v", err)
-		}
-
+	timeout := time.Duration(suite.cfg.EventTimeoutMs * int(time.Millisecond))
+	respCh := Subscribe(timeout, ws, func(respMsg *protocol.Envelope) (bool, error) {
 		expectedPath := strings.ReplaceAll(cmdMsgEnvelope.Path, "inbox", "outbox")
 		if err := checkEqual(expectedPath, respMsg.Path, "path"); err != nil {
-			return err
+			return false, err
 		}
 		if err := checkEqual(*cmdMsgEnvelope.Topic, *respMsg.Topic, "topic"); err != nil {
-			return err
+			return false, err
 		}
 		if err := checkEqual(respMsg.Status, http.StatusOK, "http ok"); err != nil {
-			return err
+			return false, err
 		}
 		if err := checkEqual(fmt.Sprintf(responsePayloadTemplate, cmdMsgEnvelope.Value.(string)), respMsg.Value, "response payload"); err != nil {
-			return err
+			return false, err
 		}
-		return nil
+		return true, nil
 	})
 
 	err = websocket.JSON.Send(ws, cmdMsgEnvelope)
 	require.NoError(suite.T(), err, "unable to send command to the backend via websocket")
 
-	commandTimeout := time.Duration(suite.cfg.EventTimeoutMs * int(time.Millisecond))
-	timeoutCh := beginWait(commandTimeout, commandResponseCh, func() {})
-	require.NoError(suite.T(), <-timeoutCh, "command should be received and response should be sent")
-	require.NoError(suite.T(), <-respCh, "command response should be received")
+	responseSentResult := WaitSubscribeResult(timeout, commandResponseCh, func() {})
+	require.Equal(suite.T(), SubscribeResult{true, nil}, responseSentResult, "command should be received and response should be sent")
+
+	subscribeResult := WaitSubscribeResult(timeout, respCh, func() { ws.Close() })
+	require.Equal(suite.T(), SubscribeResult{true, nil}, subscribeResult, "command response should be received")
 }
 
 func (suite *ConnectorSuite) TestEvent() {
@@ -302,20 +304,14 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
 
-	const subAck = "START-SEND-EVENTS:ACK"
-	ackCh := suite.beginWSWait(ws, func(payload []byte) error {
-		ack := strings.TrimSpace(string(payload))
-		if ack == subAck {
-			return nil
-		}
-		return fmt.Errorf("unknown ack: %s", ack)
-	})
-
 	sub := fmt.Sprintf("START-SEND-EVENTS?filter=like(resource:path,'/features/%s/*')", featureID)
 	err = websocket.Message.Send(ws, sub)
 	require.NoError(suite.T(), err, "unable to listen for events by using a websocket connection")
 
-	require.NoError(suite.T(), <-ackCh, "acknowledgement %v should be received", subAck)
+	const subAck = "START-SEND-EVENTS:ACK"
+	timeout := MillisToDuration(suite.cfg.EventTimeoutMs)
+
+	require.NoError(suite.T(), WaitForAck(timeout, ws, subAck), "acknowledgement %v should be received", subAck)
 
 	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
 	cmd := things.NewCommand(namespace).Twin().
@@ -323,29 +319,22 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
-	eventCh := suite.beginWSWait(ws, func(payload []byte) error {
-		props := make(map[string]interface{})
-
-		err := json.Unmarshal(payload, &props)
-		if err == nil {
-			suite.T().Logf("event received: %v", props)
-
-			if props["topic"] == fmt.Sprintf("%s/%s/things/twin/events/modified", namespace.Namespace, namespace.Name) &&
-				props["path"] == fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName) &&
-				props["value"] == newValue {
-				return nil
-			}
-			return fmt.Errorf("unexpected value: %s", newValue)
+	eventCh := Subscribe(timeout, ws, func(msg *protocol.Envelope) (bool, error) {
+		suite.T().Logf("event received: %v", msg)
+		if msg.Topic.String() == fmt.Sprintf("%s/%s/things/twin/events/modified", namespace.Namespace, namespace.Name) &&
+			msg.Path == fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName) &&
+			msg.Value == newValue {
+			return true, nil
 		}
-
-		return fmt.Errorf("error while waiting for event: %v", err)
+		return false, fmt.Errorf("unexpected value: %s", msg.Value)
 	})
 
 	err = suite.sendDittoEvent(channel, msg)
 
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
-	require.NoError(suite.T(), <-eventCh, "property changed event should be received")
+	subscribeResult := WaitSubscribeResult(timeout, eventCh, func() { ws.Close() })
+	require.Equal(suite.T(), SubscribeResult{true, nil}, subscribeResult, "property changed event should be received")
 
 	propertyURL := fmt.Sprintf("%s/properties/%s", suite.featureURL, propertyName)
 	body, err := suite.doRequest("GET", propertyURL)
@@ -367,47 +356,100 @@ func (suite *ConnectorSuite) sendDittoEvent(topic string, message interface{}) e
 	return token.Error()
 }
 
-func beginWait(timeout time.Duration, resultCh chan error, closer func()) chan error {
-	ch := make(chan error)
+func WaitForAck(
+	timeout time.Duration,
+	ws *websocket.Conn,
+	expectedAck string) error {
 
-	go func() {
-		select {
-		case result := <-resultCh:
-			ch <- result
-		case <-time.After(timeout):
-			closer()
-			ch <- errors.New("timeout")
+	var payload []byte
+	deadline := time.Now().Add(timeout)
+	ws.SetDeadline(deadline)
+	var err error
+
+	for time.Now().Before(deadline) {
+		err = websocket.Message.Receive(ws, &payload)
+		if err == nil {
+			ack := strings.TrimSpace(string(payload))
+			if ack == expectedAck {
+				return nil
+			}
 		}
-	}()
+	}
 
-	return ch
+	if err != nil {
+		return err
+	}
+	return errors.New("timeout")
 }
 
-func (suite *ConnectorSuite) beginWSWait(ws *websocket.Conn, check func(payload []byte) error) chan error {
-	timeout := time.Duration(suite.cfg.EventTimeoutMs * int(time.Millisecond))
-	resultCh := make(chan error)
+func ProcessMessages(
+	timeout time.Duration,
+	ws *websocket.Conn,
+	process func(*protocol.Envelope) (bool, error)) (bool, error) {
 
-	go func() {
-		var payload []byte
-		threshold := time.Now().Add(timeout)
-		var err error
-		for time.Now().Before(threshold) {
-			err = websocket.Message.Receive(ws, &payload)
+	var payload []byte
+	deadline := time.Now().Add(timeout)
+	ws.SetDeadline(deadline)
+
+	var err error
+	var stop bool
+	for !stop && time.Now().Before(deadline) {
+		err = websocket.Message.Receive(ws, &payload)
+		var envelope *protocol.Envelope
+		if err == nil {
+			envelope = &protocol.Envelope{}
+			err = json.Unmarshal(payload, envelope)
 			if err == nil {
-				err = check(payload)
-			}
-			if err == nil {
-				resultCh <- nil
-				return
+				stop, err = process(envelope)
+			} else {
+				// Unmarshalling error, the payload is not a JSON of protocol.Envelope
+				// Ignore the error
+				fmt.Fprintf(os.Stderr, "error unmarshalling a protocol.Envelope: %v", err)
+				err = nil
 			}
 		}
-		resultCh <- fmt.Errorf("WS response not received in %v, last error: %v", timeout, err)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	if stop {
+		return true, nil
+	}
+	return false, fmt.Errorf("WS response not received in %v, last error: %v", timeout, err)
+}
+
+type SubscribeResult struct {
+	stopped bool
+	err     error
+}
+
+func Subscribe(
+	timeout time.Duration,
+	ws *websocket.Conn,
+	process func(*protocol.Envelope) (bool, error)) chan SubscribeResult {
+	responseCh := make(chan SubscribeResult)
+	go func() {
+		stopped, err := ProcessMessages(timeout, ws, process)
+		responseCh <- SubscribeResult{
+			stopped: stopped,
+			err:     err,
+		}
 	}()
 
-	closer := func() {
-		ws.Close()
+	return responseCh
+}
+
+func WaitSubscribeResult(timeout time.Duration, resultCh chan SubscribeResult, closer func()) SubscribeResult {
+	select {
+	case result := <-resultCh:
+		return result
+	case <-time.After(timeout):
+		return SubscribeResult{
+			stopped: false,
+			err:     errors.New("timeout"),
+		}
 	}
-	return beginWait(timeout, resultCh, closer)
 }
 
 func (suite *ConnectorSuite) newWSConnection() (*websocket.Conn, error) {
