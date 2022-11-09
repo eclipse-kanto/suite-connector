@@ -10,7 +10,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 
-//+go:build integration
+//go:build integration
 
 package integration
 
@@ -495,13 +495,16 @@ func getThingConfig(mqttClient MQTT.Client) (*thingConfig, error) {
 
 	ch := make(chan result)
 
-	if token := mqttClient.Subscribe("edge/thing/response", 1, func(client MQTT.Client, message MQTT.Message) {
+	token := mqttClient.Subscribe("edge/thing/response", 1, func(client MQTT.Client, message MQTT.Message) {
 		var cfg thingConfig
 		if err := json.Unmarshal(message.Payload(), &cfg); err != nil {
 			ch <- result{nil, err}
 		}
 		ch <- result{&cfg, nil}
-	}); token.Wait() && token.Error() != nil {
+	})
+	defer mqttClient.Unsubscribe("edge/thing/response")
+
+	if token.Wait() && token.Error() != nil {
 		return nil, token.Error()
 	}
 
