@@ -165,11 +165,11 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 		ReadyUntil time.Time `json:"readyUntil"`
 	}
 
-	timeout := time.Duration(suite.cfg.StatusTimeoutMs * int(time.Millisecond))
+	timeout := MillisToDuration(suite.cfg.StatusTimeoutMs)
 	threshold := time.Now().Add(timeout)
 
 	firstTime := true
-	sleepDuration := time.Duration(suite.cfg.TimeSleepMs * int(time.Millisecond))
+	sleepDuration := MillisToDuration(suite.cfg.TimeSleepMs)
 	for {
 		if !firstTime {
 			time.Sleep(sleepDuration)
@@ -208,7 +208,7 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 }
 
 func MillisToDuration(millis int) time.Duration {
-	return time.Duration(millis * int(time.Millisecond))
+	return time.Duration(millis) * time.Millisecond
 }
 
 func (suite *ConnectorSuite) TestCommand() {
@@ -358,7 +358,7 @@ func (suite *ConnectorSuite) sendDittoEvent(topic string, message interface{}) e
 		return err
 	}
 	token := suite.mqttClient.Publish(topic, 1, false, payload)
-	timeout := time.Duration(suite.cfg.MqttAcknowledgeTimeoutMs * int(time.Millisecond))
+	timeout := MillisToDuration(suite.cfg.MqttAcknowledgeTimeoutMs)
 	if !token.WaitTimeout(timeout) {
 		return ditto.ErrAcknowledgeTimeout
 	}
