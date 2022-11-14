@@ -26,7 +26,6 @@ import (
 	env "github.com/caarlos0/env/v6"
 
 	"github.com/eclipse-kanto/kanto/integration/util"
-	"github.com/eclipse/ditto-clients-golang"
 	"github.com/eclipse/ditto-clients-golang/model"
 	"github.com/eclipse/ditto-clients-golang/protocol"
 	"github.com/eclipse/ditto-clients-golang/protocol/things"
@@ -252,7 +251,7 @@ func (suite *ConnectorSuite) TestTelemetry() {
 	suite.testModify("t", "testTelemetry")
 }
 
-func (suite *ConnectorSuite) testModify(channel string, newValue string) {
+func (suite *ConnectorSuite) testModify(topic string, newValue string) {
 	cfg := suite.Cfg
 	ws, err := util.NewDigitalTwinWSConnection(cfg)
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
@@ -272,7 +271,7 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
-	err = suite.sendDittoEvent(channel, msg)
+	err = util.SendMQTTMessage(suite.Cfg, suite.MQTTClient, topic, msg)
 
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
@@ -291,17 +290,4 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 	require.NoError(suite.T(), err, "unable to get feature property")
 
 	assert.Equal(suite.T(), fmt.Sprintf("\"%s\"", newValue), strings.TrimSpace(string(body)), "property value updated")
-}
-
-func (suite *ConnectorSuite) sendDittoEvent(topic string, message interface{}) error {
-	payload, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-	token := suite.MQTTClient.Publish(topic, 1, false, payload)
-	timeout := util.MillisToDuration(suite.Cfg.MqttAcknowledgeTimeoutMs)
-	if !token.WaitTimeout(timeout) {
-		return ditto.ErrAcknowledgeTimeout
-	}
-	return token.Error()
 }
