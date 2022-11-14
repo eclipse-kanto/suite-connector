@@ -72,8 +72,6 @@ func (suite *ConnectorSuite) SetupSuite() {
 	opts := env.Options{RequiredIfNoDef: true}
 	require.NoError(suite.T(), env.Parse(testConfig, opts), "Failed to process environment variables")
 
-	suite.T().Logf("parsed custom config: %v\n", *testConfig)
-
 	thingCfg, err := util.GetThingConfiguration(cfg, init.MQTTClient)
 	require.NoError(suite.T(), err, "init thing cfg")
 
@@ -218,11 +216,9 @@ func (suite *ConnectorSuite) TestCommand() {
 
 	err = websocket.JSON.Send(ws, cmdMsgEnvelope)
 	require.NoError(suite.T(), err, "unable to send command to the backend via websocket")
-	suite.T().Log("JSON message with command sent to Ditto via WS")
 
 	timeout := util.MillisToDuration(cfg.WsEventTimeoutMs)
 
-	suite.T().Logf("Waiting for %v time for the command to be received", timeout)
 	// Check the sending of the response from the feature to the backend
 	var responseSentResult error
 	select {
@@ -231,7 +227,6 @@ func (suite *ConnectorSuite) TestCommand() {
 	case <-time.After(timeout):
 		responseSentResult = errors.New("receiving command and sending response timed out")
 	}
-	suite.T().Logf("Result of command receiving waiting: %v", responseSentResult)
 
 	require.NoError(suite.T(),
 		responseSentResult,
@@ -290,7 +285,6 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
 	result := util.ProcessWSMessages(cfg, ws, func(msg *protocol.Envelope) (bool, error) {
-		suite.T().Logf("event received: %v", msg)
 		if msg.Topic.String() == fmt.Sprintf("%s/%s/things/twin/events/modified", namespace.Namespace, namespace.Name) &&
 			msg.Path == fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName) &&
 			msg.Value == newValue {
