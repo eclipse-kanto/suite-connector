@@ -46,7 +46,7 @@ type suiteConnectorTestConfig struct {
 
 type ConnectorSuite struct {
 	suite.Suite
-	suiteInitializer *util.SuiteInitializer
+	util.SuiteInitializer
 
 	thingCfg   *util.ThingConfiguration
 	testConfig *suiteConnectorTestConfig
@@ -63,16 +63,15 @@ const (
 )
 
 func (suite *ConnectorSuite) SetupSuite() {
-	init := &util.SuiteInitializer{}
-	init.Setup(suite.T())
+	suite.Setup(suite.T())
 
-	cfg := init.Cfg
+	cfg := suite.Cfg
 
 	testConfig := &suiteConnectorTestConfig{}
 	opts := env.Options{RequiredIfNoDef: true}
 	require.NoError(suite.T(), env.Parse(testConfig, opts), "Failed to process environment variables")
 
-	thingCfg, err := util.GetThingConfiguration(cfg, init.MQTTClient)
+	thingCfg, err := util.GetThingConfiguration(cfg, suite.MQTTClient)
 	require.NoError(suite.T(), err, "init thing cfg")
 
 	feature := &model.Feature{}
@@ -82,10 +81,9 @@ func (suite *ConnectorSuite) SetupSuite() {
 		Modify(feature)
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
-	err = init.DittoClient.Send(msg)
+	err = suite.DittoClient.Send(msg)
 	require.NoError(suite.T(), err, "create test feature")
 
-	suite.suiteInitializer = init
 	suite.thingCfg = thingCfg
 	suite.testConfig = testConfig
 	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DigitalTwinAPIAddress, "/"), thingCfg.DeviceID)
@@ -93,14 +91,10 @@ func (suite *ConnectorSuite) SetupSuite() {
 }
 
 func (suite *ConnectorSuite) TearDownSuite() {
-	init := suite.suiteInitializer
-	cfg := init.Cfg
-
-	if _, err := util.SendDigitalTwinRequest(cfg, http.MethodDelete, suite.featureURL, nil); err != nil {
+	if _, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodDelete, suite.featureURL, nil); err != nil {
 		suite.T().Logf("error while deleting test feature: %v", err)
 	}
-
-	init.TearDown()
+	suite.TearDown()
 }
 
 func TestConnectorSuite(t *testing.T) {
@@ -113,8 +107,7 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 		ReadyUntil time.Time `json:"readyUntil"`
 	}
 
-	init := suite.suiteInitializer
-	cfg := init.Cfg
+	cfg := suite.Cfg
 	testConfig := suite.testConfig
 
 	timeout := util.MillisToDuration(testConfig.StatusTimeoutMs)
@@ -160,8 +153,7 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 }
 
 func (suite *ConnectorSuite) TestCommand() {
-	init := suite.suiteInitializer
-	cfg := init.Cfg
+	cfg := suite.Cfg
 
 	ws, err := util.NewDigitalTwinWSConnection(cfg)
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
@@ -188,15 +180,15 @@ func (suite *ConnectorSuite) TestCommand() {
 				WithPath(path).
 				WithValue(responsePayload).
 				WithStatus(http.StatusOK)
-			if err := init.DittoClient.Reply(requestID, responseMsg); err != nil {
+			if err := suite.DittoClient.Reply(requestID, responseMsg); err != nil {
 				commandResponseCh <- fmt.Errorf("failed to send response: %v", err)
 				return
 			}
 			commandResponseCh <- nil
 		}
 	}
-	init.DittoClient.Subscribe(dittoHandler)
-	defer init.DittoClient.Unsubscribe(dittoHandler)
+	suite.DittoClient.Subscribe(dittoHandler)
+	defer suite.DittoClient.Unsubscribe(dittoHandler)
 
 	correlationID := uuid.New().String()
 	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
@@ -261,7 +253,7 @@ func (suite *ConnectorSuite) TestTelemetry() {
 }
 
 func (suite *ConnectorSuite) testModify(channel string, newValue string) {
-	cfg := suite.suiteInitializer.Cfg
+	cfg := suite.Cfg
 	ws, err := util.NewDigitalTwinWSConnection(cfg)
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
@@ -302,14 +294,12 @@ func (suite *ConnectorSuite) testModify(channel string, newValue string) {
 }
 
 func (suite *ConnectorSuite) sendDittoEvent(topic string, message interface{}) error {
-	init := suite.suiteInitializer
-	cfg := suite.suiteInitializer.Cfg
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
-	token := init.MQTTClient.Publish(topic, 1, false, payload)
-	timeout := util.MillisToDuration(cfg.MqttAcknowledgeTimeoutMs)
+	token := suite.MQTTClient.Publish(topic, 1, false, payload)
+	timeout := util.MillisToDuration(suite.Cfg.MqttAcknowledgeTimeoutMs)
 	if !token.WaitTimeout(timeout) {
 		return ditto.ErrAcknowledgeTimeout
 	}
