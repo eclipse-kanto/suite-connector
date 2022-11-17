@@ -7,11 +7,11 @@ require (
 	github.com/ThreeDotsLabs/watermill v1.1.1
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/cenkalti/backoff/v3 v3.0.0
+	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221114101725-fadc1f231801
 	github.com/eclipse/ditto-clients-golang v0.0.0-20220225085802-cf3b306280d3
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/google/go-tpm v0.3.2
-	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.12
 	github.com/pkg/errors v0.9.1
@@ -25,7 +25,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221114101725-fadc1f231801 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/lithammer/shortuuid/v3 v3.0.4 // indirect

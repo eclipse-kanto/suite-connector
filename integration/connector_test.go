@@ -29,26 +29,26 @@ import (
 	"github.com/eclipse/ditto-clients-golang/model"
 	"github.com/eclipse/ditto-clients-golang/protocol"
 	"github.com/eclipse/ditto-clients-golang/protocol/things"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/websocket"
 )
 
-type suiteConnectorTestConfig struct {
-	StatusTimeoutMs int `env:"SCT_STATUS_TIMEOUT_MS" envDefault:"10000"`
+type connectorTestConfiguration struct {
+	CommandTimeoutMs int `env:"SCT_COMMAND_TIMEOUT_MS" envDefault:"30000"`
 
-	TimeDeltaMs int `env:"SCT_TIME_DELTA_MS" envDefault:"0"`
-	TimeSleepMs int `env:"SCT_TIME_SLEEP_MS" envDefault:"2000"`
+	StatusTimeoutMs             int `env:"SCT_STATUS_TIMEOUT_MS" envDefault:"10000"`
+	StatusReadySinceTimeDeltaMs int `env:"SCT_STATUS_READY_SINCE_TIME_DELTA_MS" envDefault:"0"`
+	StatusRetryIntervalMs       int `env:"SCT_STATUS_RETRY_INTERVAL_MS" envDefault:"2000"`
 }
 
-type ConnectorSuite struct {
+type connectorSuite struct {
 	suite.Suite
 	util.SuiteInitializer
 
-	thingCfg   *util.ThingConfiguration
-	testConfig *suiteConnectorTestConfig
+	thingCfg         *util.ThingConfiguration
+	connectorTestCfg *connectorTestConfiguration
 
 	thingURL   string
 	featureURL string
@@ -61,16 +61,15 @@ const (
 	responsePayloadTemplate = "responsePayload: %s"
 )
 
-func (suite *ConnectorSuite) SetupSuite() {
+func (suite *connectorSuite) SetupSuite() {
 	suite.Setup(suite.T())
 
-	cfg := suite.Cfg
-
-	testConfig := &suiteConnectorTestConfig{}
+	connectorTestCfg := &connectorTestConfiguration{}
 	opts := env.Options{RequiredIfNoDef: true}
-	require.NoError(suite.T(), env.Parse(testConfig, opts), "Failed to process environment variables")
+	require.NoError(suite.T(), env.Parse(connectorTestCfg, opts),
+		"failed to process suite connector test environment variables")
 
-	thingCfg, err := util.GetThingConfiguration(cfg, suite.MQTTClient)
+	thingCfg, err := util.GetThingConfiguration(suite.Cfg, suite.MQTTClient)
 	require.NoError(suite.T(), err, "init thing cfg")
 
 	feature := &model.Feature{}
@@ -84,12 +83,13 @@ func (suite *ConnectorSuite) SetupSuite() {
 	require.NoError(suite.T(), err, "create test feature")
 
 	suite.thingCfg = thingCfg
-	suite.testConfig = testConfig
-	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s", strings.TrimSuffix(cfg.DigitalTwinAPIAddress, "/"), thingCfg.DeviceID)
+	suite.connectorTestCfg = connectorTestCfg
+	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s",
+		strings.TrimSuffix(suite.Cfg.DigitalTwinAPIAddress, "/"), thingCfg.DeviceID)
 	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
 }
 
-func (suite *ConnectorSuite) TearDownSuite() {
+func (suite *connectorSuite) TearDownSuite() {
 	if _, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodDelete, suite.featureURL, nil); err != nil {
 		suite.T().Logf("error while deleting test feature: %v", err)
 	}
@@ -97,32 +97,31 @@ func (suite *ConnectorSuite) TearDownSuite() {
 }
 
 func TestConnectorSuite(t *testing.T) {
-	suite.Run(t, new(ConnectorSuite))
+	suite.Run(t, new(connectorSuite))
 }
 
-func (suite *ConnectorSuite) TestConnectionStatus() {
+func (suite *connectorSuite) TestConnectionStatus() {
 	type connectionStatus struct {
 		ReadySince time.Time `json:"readySince"`
 		ReadyUntil time.Time `json:"readyUntil"`
 	}
 
-	cfg := suite.Cfg
-	testConfig := suite.testConfig
-
-	timeout := util.MillisToDuration(testConfig.StatusTimeoutMs)
+	timeout := util.MillisToDuration(suite.connectorTestCfg.StatusTimeoutMs)
 	threshold := time.Now().Add(timeout)
 
 	firstTime := true
-	sleepDuration := util.MillisToDuration(testConfig.TimeSleepMs)
+	sleepDuration := util.MillisToDuration(suite.connectorTestCfg.StatusRetryIntervalMs)
 	for {
 		if !firstTime {
 			time.Sleep(sleepDuration)
 		}
 		firstTime = false
 		statusURL := fmt.Sprintf("%s/features/ConnectionStatus/properties/status", suite.thingURL)
-		body, err := util.SendDigitalTwinRequest(cfg, http.MethodGet, statusURL, nil)
+		body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodGet, statusURL, nil)
+		var now time.Time
 		if err != nil {
-			if time.Now().Before(threshold) {
+			now = time.Now()
+			if now.Before(threshold) {
 				continue
 			}
 			suite.T().Errorf("connection status property not available: %v", err)
@@ -134,31 +133,31 @@ func (suite *ConnectorSuite) TestConnectionStatus() {
 		require.NoError(suite.T(), err, "connection status should be parsed")
 
 		suite.T().Logf("%+v", status)
-		suite.T().Logf("current time: %v", time.Now())
+		suite.T().Logf("current time: %v", now)
 
 		forever := time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
 		if status.ReadyUntil != forever {
-			if time.Now().Before(threshold) {
+			if now.Before(threshold) {
 				continue
 			}
 			suite.T().Errorf("readyUntil should be %v", forever)
 			break
 		}
 
-		delta := int64(testConfig.TimeDeltaMs)
-		assert.Less(suite.T(), status.ReadySince.UnixMilli(), time.Now().UnixMilli()+delta, "readySince should be before current time")
+		delta := int64(suite.connectorTestCfg.StatusReadySinceTimeDeltaMs)
+
+		now = time.Now()
+		assert.Less(suite.T(), status.ReadySince.UnixMilli(), now.UnixMilli()+delta, "readySince should be before current time")
 		break
 	}
 }
 
-func (suite *ConnectorSuite) TestCommand() {
-	cfg := suite.Cfg
-
-	ws, err := util.NewDigitalTwinWSConnection(cfg)
-	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
-	defer ws.Close()
-
+func (suite *connectorSuite) TestCommand() {
 	commandResponseCh := make(chan error)
+
+	responsePayload := func(value string) string {
+		return fmt.Sprintf(responsePayloadTemplate, value)
+	}
 
 	dittoHandler := func(requestID string, msg *protocol.Envelope) {
 		if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
@@ -167,17 +166,15 @@ func (suite *ConnectorSuite) TestCommand() {
 				commandResponseCh <- fmt.Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)
 				return
 			}
-			responsePayload := fmt.Sprintf(responsePayloadTemplate, value)
-			response := things.NewMessage(model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityName))
+			response := things.NewMessage(model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityName)).
+				WithPayload(responsePayload(value)).Feature(featureID).Outbox(commandName)
 			// respond to the message by using the outbox
 			path := strings.Replace(msg.Path, "/inbox/", "/outbox/", 1)
 			responseMsg := response.Envelope(
 				protocol.WithCorrelationID(msg.Headers.CorrelationID()),
 				protocol.WithResponseRequired(false),
-				protocol.WithContentType("application/json")).
-				WithTopic(msg.Topic).
+				protocol.WithContentType("text/plain")).
 				WithPath(path).
-				WithValue(responsePayload).
 				WithStatus(http.StatusOK)
 			if err := suite.DittoClient.Reply(requestID, responseMsg); err != nil {
 				commandResponseCh <- fmt.Errorf("failed to send response: %v", err)
@@ -189,71 +186,48 @@ func (suite *ConnectorSuite) TestCommand() {
 	suite.DittoClient.Subscribe(dittoHandler)
 	defer suite.DittoClient.Unsubscribe(dittoHandler)
 
-	correlationID := uuid.New().String()
-	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
-	cmdMsgEnvelope := things.NewMessage(namespace).
-		WithPayload("request").
-		Feature(featureID).
-		Inbox(commandName).Envelope(
-		protocol.WithCorrelationID(correlationID),
-		protocol.WithContentType("text/plain"))
+	const commandPayload = "request"
 
-	checkEqual := func(expected, actual interface{}, name string) error {
-		if !assert.ObjectsAreEqual(expected, actual) {
-			return fmt.Errorf("%s: expected: %v, actual %v", name, expected, actual)
-		}
-		return nil
-	}
-
-	err = websocket.JSON.Send(ws, cmdMsgEnvelope)
-	require.NoError(suite.T(), err, "unable to send command to the backend via websocket")
-
-	timeout := util.MillisToDuration(cfg.WsEventTimeoutMs)
+	commandTimeoutSeconds := suite.connectorTestCfg.CommandTimeoutMs / 1000
+	digitalTwinAPI := fmt.Sprintf("%s/inbox/messages/%s?timeout=%d", suite.featureURL, commandName, commandTimeoutSeconds)
+	// This request blocks until the command has been proessed and the response has been received.
+	// Run it in a goroutine, so we can process the digital twin API events while this is running.
+	body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodPost, digitalTwinAPI, commandPayload)
+	require.NoError(suite.T(), err, "sending the command via REST and receiving response should work")
+	expectedResponse := responsePayload(commandPayload)
+	require.Equal(suite.T(), expectedResponse, string(body), "command response should match expected")
 
 	// Check the sending of the response from the feature to the backend
+	responseSentResult := waitWithTimeout(
+		suite.connectorTestCfg.CommandTimeoutMs, commandResponseCh, "receiving command and sending response timed out")
+	require.NoError(suite.T(),
+		responseSentResult,
+		"receiving command and sending response should succeed")
+}
+
+func waitWithTimeout(timeoutMS int, commandResponseCh chan error, timeoutErrorMessage string) error {
+	timeout := util.MillisToDuration(timeoutMS)
+
 	var responseSentResult error
 	select {
 	case result := <-commandResponseCh:
 		responseSentResult = result
 	case <-time.After(timeout):
-		responseSentResult = errors.New("receiving command and sending response timed out")
+		responseSentResult = errors.New(timeoutErrorMessage)
 	}
-
-	require.NoError(suite.T(),
-		responseSentResult,
-		"command should be received and response should be sent")
-
-	// Check the response from the feature to the backend
-	result := util.ProcessWSMessages(cfg, ws, func(respMsg *protocol.Envelope) (bool, error) {
-		expectedPath := strings.ReplaceAll(cmdMsgEnvelope.Path, "inbox", "outbox")
-		if err := checkEqual(expectedPath, respMsg.Path, "path"); err != nil {
-			return false, err
-		}
-		if err := checkEqual(*cmdMsgEnvelope.Topic, *respMsg.Topic, "topic"); err != nil {
-			return false, err
-		}
-		if err := checkEqual(respMsg.Status, http.StatusOK, "http ok"); err != nil {
-			return false, err
-		}
-		if err := checkEqual(fmt.Sprintf(responsePayloadTemplate, cmdMsgEnvelope.Value.(string)), respMsg.Value, "response payload"); err != nil {
-			return false, err
-		}
-		return true, nil
-	})
-	require.NoError(suite.T(), result, "command response should be received")
+	return responseSentResult
 }
 
-func (suite *ConnectorSuite) TestEvent() {
+func (suite *connectorSuite) TestEvent() {
 	suite.testModify("e", "testEvent")
 }
 
-func (suite *ConnectorSuite) TestTelemetry() {
+func (suite *connectorSuite) TestTelemetry() {
 	suite.testModify("t", "testTelemetry")
 }
 
-func (suite *ConnectorSuite) testModify(topic string, newValue string) {
-	cfg := suite.Cfg
-	ws, err := util.NewDigitalTwinWSConnection(cfg)
+func (suite *connectorSuite) testModify(topic string, newValue string) {
+	ws, err := util.NewDigitalTwinWSConnection(suite.Cfg)
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
 
@@ -262,11 +236,10 @@ func (suite *ConnectorSuite) testModify(topic string, newValue string) {
 	require.NoError(suite.T(), err, "unable to listen for events by using a websocket connection")
 
 	const subAck = "START-SEND-EVENTS:ACK"
+	require.NoError(suite.T(), util.WaitForWSMessage(suite.Cfg, ws, subAck), "acknowledgement %v should be received", subAck)
 
-	require.NoError(suite.T(), util.WaitForWSMessage(cfg, ws, subAck), "acknowledgement %v should be received", subAck)
-
-	namespace := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
-	cmd := things.NewCommand(namespace).Twin().
+	namespaceID := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
+	cmd := things.NewCommand(namespaceID).Twin().
 		FeatureProperty(featureID, propertyName).Modify(newValue)
 
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
@@ -275,8 +248,8 @@ func (suite *ConnectorSuite) testModify(topic string, newValue string) {
 
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
-	result := util.ProcessWSMessages(cfg, ws, func(msg *protocol.Envelope) (bool, error) {
-		if msg.Topic.String() == fmt.Sprintf("%s/%s/things/twin/events/modified", namespace.Namespace, namespace.Name) &&
+	result := util.ProcessWSMessages(suite.Cfg, ws, func(msg *protocol.Envelope) (bool, error) {
+		if msg.Topic.String() == fmt.Sprintf("%s/%s/things/twin/events/modified", namespaceID.Namespace, namespaceID.Name) &&
 			msg.Path == fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName) &&
 			msg.Value == newValue {
 			return true, nil
@@ -286,7 +259,7 @@ func (suite *ConnectorSuite) testModify(topic string, newValue string) {
 	require.NoError(suite.T(), result, "property changed event should be received")
 
 	propertyURL := fmt.Sprintf("%s/properties/%s", suite.featureURL, propertyName)
-	body, err := util.SendDigitalTwinRequest(cfg, http.MethodGet, propertyURL, nil)
+	body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodGet, propertyURL, nil)
 	require.NoError(suite.T(), err, "unable to get feature property")
 
 	assert.Equal(suite.T(), fmt.Sprintf("\"%s\"", newValue), strings.TrimSpace(string(body)), "property value updated")
