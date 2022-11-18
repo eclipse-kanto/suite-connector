@@ -50,8 +50,9 @@ type connectorSuite struct {
 	thingCfg         *util.ThingConfiguration
 	connectorTestCfg *connectorTestConfiguration
 
-	thingURL   string
-	featureURL string
+	thingURL            string
+	featureURL          string
+	featurePropertyPath string
 }
 
 const (
@@ -87,6 +88,7 @@ func (suite *connectorSuite) SetupSuite() {
 	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s",
 		strings.TrimSuffix(suite.Cfg.DigitalTwinAPIAddress, "/"), thingCfg.DeviceID)
 	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
+	suite.featurePropertyPath = fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName)
 }
 
 func (suite *connectorSuite) TearDownSuite() {
@@ -169,12 +171,10 @@ func (suite *connectorSuite) TestCommand() {
 			response := things.NewMessage(model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityName)).
 				WithPayload(responsePayload(value)).Feature(featureID).Outbox(commandName)
 			// respond to the message by using the outbox
-			path := strings.Replace(msg.Path, "/inbox/", "/outbox/", 1)
 			responseMsg := response.Envelope(
 				protocol.WithCorrelationID(msg.Headers.CorrelationID()),
 				protocol.WithResponseRequired(false),
 				protocol.WithContentType("text/plain")).
-				WithPath(path).
 				WithStatus(http.StatusOK)
 			if err := suite.DittoClient.Reply(requestID, responseMsg); err != nil {
 				commandResponseCh <- fmt.Errorf("failed to send response: %v", err)
@@ -238,8 +238,8 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 	const subAck = "START-SEND-EVENTS:ACK"
 	require.NoError(suite.T(), util.WaitForWSMessage(suite.Cfg, ws, subAck), "acknowledgement %v should be received", subAck)
 
-	namespaceID := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
-	cmd := things.NewCommand(namespaceID).Twin().
+	thingID := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
+	cmd := things.NewCommand(thingID).Twin().
 		FeatureProperty(featureID, propertyName).Modify(newValue)
 
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
@@ -249,8 +249,16 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
 	result := util.ProcessWSMessages(suite.Cfg, ws, func(msg *protocol.Envelope) (bool, error) {
-		if msg.Topic.String() == fmt.Sprintf("%s/%s/things/twin/events/modified", namespaceID.Namespace, namespaceID.Name) &&
-			msg.Path == fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName) &&
+		expectedTopic := protocol.Topic{
+			Namespace:  thingID.Namespace,
+			EntityName: thingID.Name,
+			Group:      protocol.GroupThings,
+			Channel:    protocol.ChannelTwin,
+			Criterion:  protocol.CriterionEvents,
+			Action:     protocol.ActionModified,
+		}
+		if expectedTopic == *msg.Topic &&
+			suite.featurePropertyPath == msg.Path &&
 			msg.Value == newValue {
 			return true, nil
 		}
