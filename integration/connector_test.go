@@ -70,9 +70,6 @@ func (suite *connectorSuite) SetupSuite() {
 	feature := &model.Feature{}
 	feature.WithProperty(propertyName, "testValue")
 
-	fmt.Println("ThingCFG")
-	fmt.Println(suite.ThingCfg)
-	fmt.Println(suite.ThingCfg.DeviceID)
 	cmd := things.NewCommand(model.NewNamespacedIDFrom(suite.ThingCfg.DeviceID)).Twin().Feature(featureID).
 		Modify(feature)
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
