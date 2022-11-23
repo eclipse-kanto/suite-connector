@@ -32,7 +32,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"golang.org/x/net/websocket"
 )
 
 type connectorTestConfiguration struct {
@@ -47,12 +46,10 @@ type connectorSuite struct {
 	suite.Suite
 	util.SuiteInitializer
 
-	thingCfg         *util.ThingConfiguration
 	connectorTestCfg *connectorTestConfiguration
 
-	thingURL            string
-	featureURL          string
-	featurePropertyPath string
+	thingURL   string
+	featureURL string
 }
 
 const (
@@ -70,25 +67,22 @@ func (suite *connectorSuite) SetupSuite() {
 	require.NoError(suite.T(), env.Parse(connectorTestCfg, opts),
 		"failed to process suite connector test environment variables")
 
-	thingCfg, err := util.GetThingConfiguration(suite.Cfg, suite.MQTTClient)
-	require.NoError(suite.T(), err, "init thing cfg")
-
 	feature := &model.Feature{}
 	feature.WithProperty(propertyName, "testValue")
 
-	cmd := things.NewCommand(model.NewNamespacedIDFrom(thingCfg.DeviceID)).Twin().Feature(featureID).
+	fmt.Println("ThingCFG")
+	fmt.Println(suite.ThingCfg)
+	fmt.Println(suite.ThingCfg.DeviceID)
+	cmd := things.NewCommand(model.NewNamespacedIDFrom(suite.ThingCfg.DeviceID)).Twin().Feature(featureID).
 		Modify(feature)
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
 
-	err = suite.DittoClient.Send(msg)
+	err := suite.DittoClient.Send(msg)
 	require.NoError(suite.T(), err, "create test feature")
 
-	suite.thingCfg = thingCfg
 	suite.connectorTestCfg = connectorTestCfg
-	suite.thingURL = fmt.Sprintf("%s/api/2/things/%s",
-		strings.TrimSuffix(suite.Cfg.DigitalTwinAPIAddress, "/"), thingCfg.DeviceID)
-	suite.featureURL = fmt.Sprintf("%s/features/%s", suite.thingURL, featureID)
-	suite.featurePropertyPath = fmt.Sprintf("/features/%s/properties/%s", featureID, propertyName)
+	suite.thingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
+	suite.featureURL = util.GetFeatureURL(suite.thingURL, featureID)
 }
 
 func (suite *connectorSuite) TearDownSuite() {
@@ -118,6 +112,7 @@ func (suite *connectorSuite) TestConnectionStatus() {
 			time.Sleep(sleepDuration)
 		}
 		firstTime = false
+
 		statusURL := fmt.Sprintf("%s/features/ConnectionStatus/properties/status", suite.thingURL)
 		body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodGet, statusURL, nil)
 		var now time.Time
@@ -162,7 +157,8 @@ func (suite *connectorSuite) TestCommand() {
 	}
 
 	dittoHandler := func(requestID string, msg *protocol.Envelope) {
-		if msg.Path == fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName) {
+		expectedPath := strings.ReplaceAll(util.GetFeatureOutboxMessagePath(featureID, commandName), "outbox", "inbox")
+		if msg.Path == expectedPath {
 			value, ok := msg.Value.(string)
 			if !ok {
 				commandResponseCh <- fmt.Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)
@@ -231,14 +227,11 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 	require.NoError(suite.T(), err, "cannot create a websocket connection to the backend")
 	defer ws.Close()
 
-	sub := fmt.Sprintf("START-SEND-EVENTS?filter=like(resource:path,'/features/%s/*')", featureID)
-	err = websocket.Message.Send(ws, sub)
-	require.NoError(suite.T(), err, "unable to listen for events by using a websocket connection")
+	filter := fmt.Sprintf("like(resource:path,'/features/%s/*')", featureID)
+	err = util.SubscribeForWSMessages(suite.Cfg, ws, "START-SEND-EVENTS", filter)
+	require.NoError(suite.T(), err, "subscription for events should succeed")
 
-	const subAck = "START-SEND-EVENTS:ACK"
-	require.NoError(suite.T(), util.WaitForWSMessage(suite.Cfg, ws, subAck), "acknowledgement %v should be received", subAck)
-
-	thingID := model.NewNamespacedIDFrom(suite.thingCfg.DeviceID)
+	thingID := model.NewNamespacedIDFrom(suite.ThingCfg.DeviceID)
 	cmd := things.NewCommand(thingID).Twin().
 		FeatureProperty(featureID, propertyName).Modify(newValue)
 
@@ -248,6 +241,7 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
+	featurePropertyPath := util.GetFeaturePropertyPath(featureID, propertyName)
 	result := util.ProcessWSMessages(suite.Cfg, ws, func(msg *protocol.Envelope) (bool, error) {
 		expectedTopic := protocol.Topic{
 			Namespace:  thingID.Namespace,
@@ -258,7 +252,7 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 			Action:     protocol.ActionModified,
 		}
 		if expectedTopic == *msg.Topic &&
-			suite.featurePropertyPath == msg.Path &&
+			featurePropertyPath == msg.Path &&
 			msg.Value == newValue {
 			return true, nil
 		}
