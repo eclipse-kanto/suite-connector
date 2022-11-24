@@ -240,15 +240,8 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 
 	featurePropertyPath := util.GetFeaturePropertyPath(featureID, propertyName)
 	result := util.ProcessWSMessages(suite.Cfg, ws, func(msg *protocol.Envelope) (bool, error) {
-		expectedTopic := protocol.Topic{
-			Namespace:  thingID.Namespace,
-			EntityName: thingID.Name,
-			Group:      protocol.GroupThings,
-			Channel:    protocol.ChannelTwin,
-			Criterion:  protocol.CriterionEvents,
-			Action:     protocol.ActionModified,
-		}
-		if expectedTopic == *msg.Topic &&
+		expectedTopic := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
+		if expectedTopic == msg.Topic.String() &&
 			featurePropertyPath == msg.Path &&
 			msg.Value == newValue {
 			return true, nil
