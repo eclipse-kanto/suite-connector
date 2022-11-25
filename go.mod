@@ -7,7 +7,7 @@ require (
 	github.com/ThreeDotsLabs/watermill v1.1.1
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/cenkalti/backoff/v3 v3.0.0
-	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221125101153-9ddda5ba7f25
+	github.com/eclipse-kanto/kanto/integration/util v0.0.0-20221125134142-56b32f6b3e24
 	github.com/eclipse/ditto-clients-golang v0.0.0-20220225085802-cf3b306280d3
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/fsnotify/fsnotify v1.5.1
