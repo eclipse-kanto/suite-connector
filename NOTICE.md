@@ -76,11 +76,11 @@ fsnotify/fsnotify (1.5.1)
 * Project: https://github.com/fsnotify/fsnotify
 * Source:  https://github.com/fsnotify/fsnotify/releases/tag/v1.5.1
 
-google/uuid (1.1.1)
+google/uuid (1.3.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/google/uuid
-* Source:  https://github.com/google/uuid/releases/tag/v1.1.1
+* Source:  https://github.com/google/uuid/releases/tag/v1.3.0
 
 gorilla/websocket (1.4.2)
 

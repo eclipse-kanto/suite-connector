@@ -16,7 +16,6 @@ package integration
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -48,14 +47,16 @@ type connectorSuite struct {
 
 	connectorTestCfg *connectorTestConfiguration
 
-	thingURL   string
-	featureURL string
+	thingURL     string
+	featureURL   string
+	featureInbox string
 }
 
 const (
 	featureID               = "ConnectorTestFeature"
 	propertyName            = "testProperty"
 	commandName             = "testCommand"
+	commandPayload          = "request"
 	responsePayloadTemplate = "responsePayload: %s"
 )
 
@@ -80,6 +81,7 @@ func (suite *connectorSuite) SetupSuite() {
 	suite.connectorTestCfg = connectorTestCfg
 	suite.thingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
 	suite.featureURL = util.GetFeatureURL(suite.thingURL, featureID)
+	suite.featureInbox = fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName)
 }
 
 func (suite *connectorSuite) TearDownSuite() {
@@ -110,11 +112,10 @@ func (suite *connectorSuite) TestConnectionStatus() {
 		}
 		firstTime = false
 
-		statusURL := fmt.Sprintf("%s/features/ConnectionStatus/properties/status", suite.thingURL)
+		statusURL := suite.thingURL + "/features/ConnectionStatus/properties/status"
 		body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodGet, statusURL, nil)
-		var now time.Time
+		now := time.Now()
 		if err != nil {
-			now = time.Now()
 			if now.Before(threshold) {
 				continue
 			}
@@ -130,7 +131,7 @@ func (suite *connectorSuite) TestConnectionStatus() {
 		suite.T().Logf("current time: %v", now)
 
 		forever := time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
-		if status.ReadyUntil != forever {
+		if !forever.Equal(status.ReadyUntil) {
 			if now.Before(threshold) {
 				continue
 			}
@@ -147,18 +148,15 @@ func (suite *connectorSuite) TestConnectionStatus() {
 }
 
 func (suite *connectorSuite) TestCommand() {
-	commandResponseCh := make(chan error)
-
+	// Minimize the scope of this utility function
 	responsePayload := func(value string) string {
 		return fmt.Sprintf(responsePayloadTemplate, value)
 	}
 
 	dittoHandler := func(requestID string, msg *protocol.Envelope) {
-		expectedPath := strings.ReplaceAll(util.GetFeatureOutboxMessagePath(featureID, commandName), "outbox", "inbox")
-		if msg.Path == expectedPath {
+		if msg.Path == suite.featureInbox {
 			value, ok := msg.Value.(string)
 			if !ok {
-				commandResponseCh <- fmt.Errorf("unexpected message payload: %v, %T", msg.Value, msg.Value)
 				return
 			}
 			response := things.NewMessage(model.NewNamespacedID(msg.Topic.Namespace, msg.Topic.EntityName)).
@@ -169,46 +167,16 @@ func (suite *connectorSuite) TestCommand() {
 				protocol.WithResponseRequired(false),
 				protocol.WithContentType("text/plain")).
 				WithStatus(http.StatusOK)
-			if err := suite.DittoClient.Reply(requestID, responseMsg); err != nil {
-				commandResponseCh <- fmt.Errorf("failed to send response: %v", err)
-				return
-			}
-			commandResponseCh <- nil
+			suite.DittoClient.Reply(requestID, responseMsg)
 		}
 	}
 	suite.DittoClient.Subscribe(dittoHandler)
 	defer suite.DittoClient.Unsubscribe(dittoHandler)
 
-	const commandPayload = "request"
-
-	commandTimeoutSeconds := suite.connectorTestCfg.CommandTimeoutMs / 1000
-	digitalTwinAPI := fmt.Sprintf("%s/inbox/messages/%s?timeout=%d", suite.featureURL, commandName, commandTimeoutSeconds)
-	// This request blocks until the command has been proessed and the response has been received.
-	// Run it in a goroutine, so we can process the digital twin API events while this is running.
-	body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodPost, digitalTwinAPI, commandPayload)
+	body, err := util.ExecuteOperation(suite.Cfg, suite.featureURL, commandName, commandPayload)
 	require.NoError(suite.T(), err, "sending the command via REST and receiving response should work")
 	expectedResponse := responsePayload(commandPayload)
 	require.Equal(suite.T(), expectedResponse, string(body), "command response should match expected")
-
-	// Check the sending of the response from the feature to the backend
-	responseSentResult := waitWithTimeout(
-		suite.connectorTestCfg.CommandTimeoutMs, commandResponseCh, "receiving command and sending response timed out")
-	require.NoError(suite.T(),
-		responseSentResult,
-		"receiving command and sending response should succeed")
-}
-
-func waitWithTimeout(timeoutMS int, commandResponseCh chan error, timeoutErrorMessage string) error {
-	timeout := util.MillisToDuration(timeoutMS)
-
-	var responseSentResult error
-	select {
-	case result := <-commandResponseCh:
-		responseSentResult = result
-	case <-time.After(timeout):
-		responseSentResult = errors.New(timeoutErrorMessage)
-	}
-	return responseSentResult
 }
 
 func (suite *connectorSuite) TestEvent() {
@@ -238,11 +206,11 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
-	featurePropertyPath := util.GetFeaturePropertyPath(featureID, propertyName)
 	result := util.ProcessWSMessages(suite.Cfg, ws, func(msg *protocol.Envelope) (bool, error) {
 		expectedTopic := util.GetTwinEventTopic(suite.ThingCfg.DeviceID, protocol.ActionModified)
+		expectedPath := util.GetFeaturePropertyPath(featureID, propertyName)
 		if expectedTopic == msg.Topic.String() &&
-			featurePropertyPath == msg.Path &&
+			expectedPath == msg.Path &&
 			msg.Value == newValue {
 			return true, nil
 		}
