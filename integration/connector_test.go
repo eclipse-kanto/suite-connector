@@ -47,9 +47,8 @@ type connectorSuite struct {
 
 	connectorTestCfg *connectorTestConfiguration
 
-	thingURL     string
-	featureURL   string
-	featureInbox string
+	thingURL   string
+	featureURL string
 }
 
 const (
@@ -81,7 +80,6 @@ func (suite *connectorSuite) SetupSuite() {
 	suite.connectorTestCfg = connectorTestCfg
 	suite.thingURL = util.GetThingURL(suite.Cfg.DigitalTwinAPIAddress, suite.ThingCfg.DeviceID)
 	suite.featureURL = util.GetFeatureURL(suite.thingURL, featureID)
-	suite.featureInbox = fmt.Sprintf("/features/%s/inbox/messages/%s", featureID, commandName)
 }
 
 func (suite *connectorSuite) TearDownSuite() {
@@ -112,8 +110,8 @@ func (suite *connectorSuite) TestConnectionStatus() {
 		}
 		firstTime = false
 
-		statusURL := suite.thingURL + "/features/ConnectionStatus/properties/status"
-		body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodGet, statusURL, nil)
+		body, err := util.GetFeaturePropertyValue(suite.Cfg,
+			util.GetFeatureURL(suite.thingURL, "ConnectionStatus"), "status")
 		now := time.Now()
 		if err != nil {
 			if now.Before(threshold) {
@@ -154,7 +152,8 @@ func (suite *connectorSuite) TestCommand() {
 	}
 
 	dittoHandler := func(requestID string, msg *protocol.Envelope) {
-		if msg.Path == suite.featureInbox {
+		featureInbox := util.GetFeatureInboxMessagePath(featureID, commandName)
+		if msg.Path == featureInbox {
 			value, ok := msg.Value.(string)
 			if !ok {
 				return
@@ -218,8 +217,7 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 	})
 	require.NoError(suite.T(), result, "property changed event should be received")
 
-	propertyURL := fmt.Sprintf("%s/properties/%s", suite.featureURL, propertyName)
-	body, err := util.SendDigitalTwinRequest(suite.Cfg, http.MethodGet, propertyURL, nil)
+	body, err := util.GetFeaturePropertyValue(suite.Cfg, suite.featureURL, propertyName)
 	require.NoError(suite.T(), err, "unable to get feature property")
 
 	assert.Equal(suite.T(), fmt.Sprintf("\"%s\"", newValue), strings.TrimSpace(string(body)), "property value updated")
