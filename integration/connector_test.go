@@ -34,8 +34,6 @@ import (
 )
 
 type connectorTestConfiguration struct {
-	CommandTimeoutMs int `env:"SCT_COMMAND_TIMEOUT_MS" envDefault:"30000"`
-
 	StatusTimeoutMs             int `env:"SCT_STATUS_TIMEOUT_MS" envDefault:"10000"`
 	StatusReadySinceTimeDeltaMs int `env:"SCT_STATUS_READY_SINCE_TIME_DELTA_MS" envDefault:"0"`
 	StatusRetryIntervalMs       int `env:"SCT_STATUS_RETRY_INTERVAL_MS" envDefault:"2000"`
