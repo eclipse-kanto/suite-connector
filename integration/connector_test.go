@@ -71,7 +71,6 @@ func (suite *connectorSuite) SetupSuite() {
 	cmd := things.NewCommand(model.NewNamespacedIDFrom(suite.ThingCfg.DeviceID)).Twin().Feature(featureID).
 		Modify(feature)
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
-
 	err := suite.DittoClient.Send(msg)
 	require.NoError(suite.T(), err, "create test feature")
 
@@ -190,17 +189,16 @@ func (suite *connectorSuite) testModify(topic string, newValue string) {
 	defer ws.Close()
 
 	filter := fmt.Sprintf("like(resource:path,'/features/%s/*')", featureID)
-	err = util.SubscribeForWSMessages(suite.Cfg, ws, "START-SEND-EVENTS", filter)
+	err = util.SubscribeForWSMessages(suite.Cfg, ws, util.StartSendEvents, filter)
 	require.NoError(suite.T(), err, "subscription for events should succeed")
+	defer util.UnsubscribeFromWSMessages(suite.Cfg, ws, util.StopSendEvents)
 
 	thingID := model.NewNamespacedIDFrom(suite.ThingCfg.DeviceID)
 	cmd := things.NewCommand(thingID).Twin().
 		FeatureProperty(featureID, propertyName).Modify(newValue)
 
 	msg := cmd.Envelope(protocol.WithResponseRequired(false))
-
 	err = util.SendMQTTMessage(suite.Cfg, suite.MQTTClient, topic, msg)
-
 	require.NoError(suite.T(), err, "unable to send event to the backend")
 
 	result := util.ProcessWSMessages(suite.Cfg, ws, func(msg *protocol.Envelope) (bool, error) {
