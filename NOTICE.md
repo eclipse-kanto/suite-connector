@@ -34,11 +34,11 @@ The project maintains all source code repositories in the following GitHub organ
 
 This project makes use of the follow third party projects.
 
-golang/go (1.17.2)
+golang/go (1.19.4)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/go
-* Source:  https://github.com/golang/go/releases/tag/go1.17.2
+* Source:  https://github.com/golang/go/releases/tag/go1.19.4
 
 Jeffail/gabs (2.6.0)
 
