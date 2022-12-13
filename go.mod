@@ -18,7 +18,6 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/tevino/abool/v2 v2.0.1
 	go.uber.org/goleak v1.1.10
-	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
@@ -33,6 +32,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
+	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/tools v0.1.1 // indirect

@@ -66,7 +66,7 @@ func (l *mockLauncher) Stop() {
 	//Nothing to do
 }
 
-//NewMockLauncher creates mock launcher for testing purposes
+// NewMockLauncher creates mock launcher for testing purposes
 func NewMockLauncher(client *conn.MQTTConnection, pub message.Publisher, manager conn.SubscriptionManager) Launcher {
 	return new(mockLauncher)
 }

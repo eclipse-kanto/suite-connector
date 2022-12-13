@@ -16,7 +16,7 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 )
 
-//Disable paho offline buffer
+// Disable paho offline buffer
 type nostore struct {
 	// Nothing to do
 }
