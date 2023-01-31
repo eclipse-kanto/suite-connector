@@ -46,4 +46,8 @@ jobs:
           go tool cover -func coverage.out
       - name: Build Integration Tests
         run: |
-          go test --tags=integration ./integration -c -o integration/sc-test
+          go test --tags=integration ./integration -c -o integration/bin/sc-test
+          go test --tags=local_integration ./cmd/connector -c -o ./integration/bin/cmd-test
+          go test --tags=local_integration ./config -c -o ./integration/bin/config-test
+          go test --tags=local_integration ./connector -c -o ./integration/bin/connector-test
+          go test --tags=local_integration ./routing -c -o ./integration/bin/routing-test
