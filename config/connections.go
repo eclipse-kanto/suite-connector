@@ -445,6 +445,7 @@ func HonoConnect(sigs chan os.Signal,
 	}
 }
 
+// NewHubUsername returns username from hub connection settings
 func NewHubUsername(settings *HubConnectionSettings) string {
 	if len(settings.Username) > 0 {
 		return settings.Username
