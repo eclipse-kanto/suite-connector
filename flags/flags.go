@@ -100,6 +100,7 @@ func AddHub(f *flag.FlagSet, settings, def *config.HubConnectionSettings) {
 	f.StringVar(&settings.PolicyID, "policyId", def.PolicyID, "Policy `ID`")
 	f.StringVar(&settings.AuthID, "authId", def.AuthID, "Authorization `ID`")
 	f.StringVar(&settings.Password, "password", def.Password, "Hub endpoint password")
+	f.StringVar(&settings.Username, "username", def.Username, "Hub endpoint username")
 	f.StringVar(&settings.ClientID, "clientId", def.ClientID, "Hub client `ID`")
 
 	AddTLS(f, &settings.TLSSettings, &def.TLSSettings)

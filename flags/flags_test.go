@@ -50,6 +50,7 @@ func TestFlagsMappings(t *testing.T) {
 		"-policyId=D",
 		"-address=mqtts://mqtt.bosch-iot-hub.com:8883",
 		"-password=E",
+		"-username=T",
 		"-clientId=F",
 		"-localAddress=tcp://localhost:1883",
 		"-localUsername=G",
@@ -81,6 +82,7 @@ func TestFlagsMappings(t *testing.T) {
 	assert.Equal(t, "D", cmd.PolicyID)
 	assert.Equal(t, "mqtts://mqtt.bosch-iot-hub.com:8883", cmd.Address)
 	assert.Equal(t, "E", cmd.Password)
+	assert.Equal(t, "T", cmd.Username)
 	assert.Equal(t, "F", cmd.ClientID)
 	assert.Equal(t, "tcp://localhost:1883", cmd.LocalAddress)
 	assert.Equal(t, "G", cmd.LocalUsername)
