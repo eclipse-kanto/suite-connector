@@ -449,9 +449,8 @@ func HonoConnect(sigs chan os.Signal,
 func NewHubUsername(settings *HubConnectionSettings) string {
 	if len(settings.Username) > 0 {
 		return settings.Username
-	} else {
-		return util.NewHonoUserName(settings.AuthID, settings.TenantID)
 	}
+	return util.NewHonoUserName(settings.AuthID, settings.TenantID)
 }
 
 func isConnectionSecure(schema string) bool {
