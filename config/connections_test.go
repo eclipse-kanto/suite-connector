@@ -26,6 +26,7 @@ import (
 	"github.com/eclipse-kanto/suite-connector/config"
 	"github.com/eclipse-kanto/suite-connector/logger"
 	"github.com/eclipse-kanto/suite-connector/testutil"
+	"github.com/eclipse-kanto/suite-connector/util"
 
 	conn "github.com/eclipse-kanto/suite-connector/connector"
 )
@@ -248,4 +249,26 @@ func TestHonoSub(t *testing.T) {
 	sub := config.NewHonoSub(logger, client)
 	require.NotNil(t, sub)
 	assert.NoError(t, sub.Close())
+}
+
+func TestNewHubUsername(t *testing.T) {
+	hubSettings := config.HubConnectionSettings{
+		TenantID: "t6ea0f08c_hub",
+		AuthID:   "org.eclipse.kanto_test",
+		DeviceID: "org.eclipse.kanto:test",
+		Address:  "mqtts://mqtt.example.com:8883",
+		Username: "testuser",
+	}
+	settings := &config.Settings{
+		HubConnectionSettings: hubSettings,
+	}
+	require.NoError(t, settings.ValidateDynamic())
+	assert.Equal(t, "testuser", config.NewHubUsername(&hubSettings))
+
+	hubSettings.Username = ""
+	settings = &config.Settings{
+		HubConnectionSettings: hubSettings,
+	}
+	require.NoError(t, settings.ValidateDynamic())
+	assert.Equal(t, util.NewHonoUserName(hubSettings.AuthID, hubSettings.TenantID), config.NewHubUsername(&hubSettings))
 }

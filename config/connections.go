@@ -24,10 +24,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ThreeDotsLabs/watermill"
-	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/cenkalti/backoff/v3"
 	"github.com/pkg/errors"
+
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill/message"
 
 	"github.com/eclipse-kanto/suite-connector/logger"
 	"github.com/eclipse-kanto/suite-connector/routing"
@@ -61,6 +62,7 @@ type HubConnectionSettings struct {
 	PolicyID string `json:"policyId"`
 	Address  string `json:"address"`
 	Password string `json:"password"`
+	Username string `json:"username"`
 	ClientID string `json:"clientId"`
 	AuthID   string `json:"authId"`
 
@@ -163,7 +165,7 @@ func CreateHubConnection(
 
 		if len(tlsConfig.Certificates) == 0 {
 			settings.UseCertificate = false
-			honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
+			honoConfig.Credentials.UserName = NewHubUsername(settings)
 			honoConfig.Credentials.Password = settings.Password
 		} else {
 			if len(settings.DeviceIDPattern) > 0 {
@@ -186,7 +188,7 @@ func CreateHubConnection(
 	} else {
 		logger.Warnf("Insecure connection is used with address=%s", settings.Address)
 		settings.UseCertificate = false
-		honoConfig.Credentials.UserName = util.NewHonoUserName(settings.AuthID, settings.TenantID)
+		honoConfig.Credentials.UserName = NewHubUsername(settings)
 		honoConfig.Credentials.Password = settings.Password
 	}
 
@@ -441,6 +443,14 @@ func HonoConnect(sigs chan os.Signal,
 			//go on
 		}
 	}
+}
+
+// NewHubUsername returns username from hub connection settings
+func NewHubUsername(settings *HubConnectionSettings) string {
+	if len(settings.Username) > 0 {
+		return settings.Username
+	}
+	return util.NewHonoUserName(settings.AuthID, settings.TenantID)
 }
 
 func isConnectionSecure(schema string) bool {
