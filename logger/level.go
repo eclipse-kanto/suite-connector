@@ -119,7 +119,7 @@ type LogLevelDecorator struct {
 
 // Println prints the values with a new line break.
 func (l LogLevelDecorator) Println(v ...interface{}) {
-	l.exporter.Export(l.level, fmt.Sprint(v...))
+	l.exporter.Export(l.level, fmt.Sprintln(v...))
 }
 
 // Printf formats the text while printing the data.
