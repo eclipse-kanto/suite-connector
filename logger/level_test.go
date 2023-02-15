@@ -133,3 +133,16 @@ func TestLogLevelDecorator(t *testing.T) {
 
 	assert.True(t, strings.Contains(output, formatted))
 }
+
+func TestLogLevelDecoratorSpacing(t *testing.T) {
+	const msg = "Message 15 deleted"
+
+	b1 := new(bytes.Buffer)
+	d := NewLevelDecorator(create(b1, "[testing] ", 15), INFO)
+
+	d.Println("Message", 15, "deleted")
+
+	output := b1.String()
+
+	assert.True(t, strings.Contains(output, msg))
+}
