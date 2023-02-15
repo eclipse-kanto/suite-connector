@@ -13,6 +13,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 
@@ -88,13 +89,13 @@ func (l *launcher) Run(
 	honoSub := config.NewHonoSub(logger, honoClient)
 
 	mosquittoSub := conn.NewSubscriber(cloudClient, conn.QosAtLeastOnce, false, logger, nil)
-	routing.CommandsResBus(router, honoPub, mosquittoSub, reqCache)
+	routing.CommandsResBus(router, honoPub, mosquittoSub, reqCache, settings.DeviceID)
 
 	routing.EventsBus(router, honoPub, mosquittoSub)
 
 	routing.CommandsReqBus(router,
 		conn.NewPublisher(cloudClient, conn.QosAtLeastOnce, logger, nil),
-		honoSub, reqCache,
+		honoSub, reqCache, settings.DeviceID,
 	)
 
 	shutdown := func(r *message.Router) error {
@@ -149,7 +150,12 @@ func (l *launcher) Run(
 			}
 			defer honoClient.Disconnect()
 
+			//Add subscription for the gateway commands
+			l.manager.Add(fmt.Sprintf("command//%s/req/#", settings.DeviceID))
+
 			<-l.signals
+
+			l.manager.Remove(fmt.Sprintf("command//%s/req/#", settings.DeviceID))
 
 			honoClient.RemoveConnectionListener(errorsHandler)
 			honoClient.RemoveConnectionListener(connHandler)

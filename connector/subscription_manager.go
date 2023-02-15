@@ -30,13 +30,14 @@ type SubscriptionManager interface {
 }
 
 type subscriptionManager struct {
-	topics sync.Map
+	topics map[string]int
+	lock   sync.Mutex
 
 	conn atomic.Value
 }
 
 func (m *subscriptionManager) Add(topic string) bool {
-	if _, ok := m.topics.LoadOrStore(topic, true); !ok {
+	if m.add0(topic) {
 		if connRef := m.conn.Load(); connRef != nil {
 			conn := connRef.(*MQTTConnection)
 			conn.subscribe(nil, QosAtMostOnce, topic)
@@ -46,8 +47,21 @@ func (m *subscriptionManager) Add(topic string) bool {
 	return false
 }
 
+func (m *subscriptionManager) add0(topic string) bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if c, ok := m.topics[topic]; ok {
+		m.topics[topic] = c + 1
+		return false
+	}
+
+	m.topics[topic] = 1
+	return true
+}
+
 func (m *subscriptionManager) Remove(topic string) bool {
-	if _, ok := m.topics.LoadAndDelete(topic); ok {
+	if m.remove0(topic) {
 		if connRef := m.conn.Load(); connRef != nil {
 			conn := connRef.(*MQTTConnection)
 			conn.unsubscribe(topic, true)
@@ -57,17 +71,46 @@ func (m *subscriptionManager) Remove(topic string) bool {
 	return false
 }
 
+func (m *subscriptionManager) remove0(topic string) bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if c, ok := m.topics[topic]; ok {
+		if c > 1 {
+			m.topics[topic] = c - 1
+			return false
+		}
+		delete(m.topics, topic)
+		return true
+	}
+
+	return false
+}
+
 func (m *subscriptionManager) ForwardTo(conn *MQTTConnection) {
 	m.conn.Store(conn)
 
-	m.topics.Range(func(key, value interface{}) bool {
-		topic := key.(string)
+	topics := m.copyTopics()
+
+	for _, topic := range topics {
 		conn.subscribe(nil, QosAtMostOnce, topic)
-		return true
-	})
+	}
+}
+
+func (m *subscriptionManager) copyTopics() []string {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	result := make([]string, 0)
+	for topic := range m.topics {
+		result = append(result, topic)
+	}
+	return result
 }
 
 // NewSubscriptionManager creates subscriptions manager.
 func NewSubscriptionManager() SubscriptionManager {
-	return new(subscriptionManager)
+	return &subscriptionManager{
+		topics: make(map[string]int),
+	}
 }

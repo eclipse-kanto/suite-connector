@@ -47,8 +47,10 @@ func TestAddSubscription(t *testing.T) {
 
 	assert.True(t, m.Add(topicClientsTotal))
 	assert.False(t, m.Add(topicClientsTotal))
+	assert.False(t, m.Remove(topicClientsTotal))
 	assert.True(t, m.Remove(topicClientsTotal))
 	assert.True(t, m.Add(topicClientsTotal))
+	assert.True(t, m.Remove(topicClientsTotal))
 }
 
 func TestRemoveSubscription(t *testing.T) {

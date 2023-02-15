@@ -19,6 +19,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ThreeDotsLabs/watermill"
@@ -27,6 +28,27 @@ import (
 	"github.com/eclipse-kanto/suite-connector/connector"
 	"github.com/eclipse-kanto/suite-connector/util"
 )
+
+type logMessageType int
+
+const (
+	// Subscription message type.
+	Subscription logMessageType = iota
+	// UnSubscription message type.
+	UnSubscription
+	// Disconnection message type.
+	Disconnection
+	// Termination message type.
+	Termination
+)
+
+// LogMessage represents a subscription message data.
+type LogMessage struct {
+	ClientID  string
+	Timestamp logTimestamp
+	Text      string
+	Type      logMessageType
+}
 
 const (
 	// TopicLogSubscribe is topic for log messages about subscriptions.
@@ -132,9 +154,11 @@ func (h *LogHandler) ProcessLogs(msg *message.Message) error {
 		return nil
 	}
 
-	h.Logger.Debug(fmt.Sprint("[mosquitto] ", topic, " ", string(msg.Payload)), nil)
+	payload := string(msg.Payload)
 
-	logMessage := ParseLogMessage(topic, string(msg.Payload))
+	h.Logger.Debug(fmt.Sprint("[mosquitto] ", topic, " ", payload), nil)
+
+	logMessage := ParseLogMessage(topic, payload)
 	if logMessage == nil {
 		return nil
 	}
@@ -152,123 +176,20 @@ func (h *LogHandler) ProcessLogs(msg *message.Message) error {
 	// for all other clients evaluate the message
 	switch logMessage.Type {
 	case Subscription:
-		h.processLogsSubscriptionType(logMessage)
+		h.addSubscription(logMessage)
 
 	case UnSubscription:
-		topicNorm := util.NormalizeTopic(logMessage.Text)
-		removed := h.remove(topicNorm)
-		if removed != nil {
-			// forward unsubscriptions with the real topic
-			h.Manager.Remove(removed.TopicReal)
-			h.Logger.Info(fmt.Sprintf("Forwarded unsubscribe %v", removed), nil)
-		}
+		h.removeSubscription(logMessage)
+
 	case Disconnection, Termination:
 		// if client close or terminate remove all subscriptions for this client and forward all
-		removedList := h.removeClient(logMessage.ClientID)
-		for e := removedList.Front(); e != nil; e = e.Next() {
-			i := e.Value.(SubscriptionItem)
-			// forward unsubscription with the real topic
-			h.Manager.Remove(i.TopicReal)
-			h.Logger.Info(fmt.Sprintf("Forward unsubscribe %v due to %#v", i, logMessage.Type), nil)
-		}
+		h.removeAllSubscriptions(logMessage.ClientID)
 
 	default:
 		// do nothing
 	}
 
 	return nil
-}
-
-func (h *LogHandler) processLogsSubscriptionType(logMessage *LogMessage) {
-	topicNorm := util.NormalizeTopic(logMessage.Text)
-	itemCandidate := SubscriptionItem{
-		ClientID:  logMessage.ClientID,
-		Timestamp: logMessage.Timestamp,
-		TopicID:   topicNorm,
-		TopicReal: logMessage.Text,
-	}
-	itemCurrent := h.get(topicNorm)
-	if itemCurrent != nil {
-		// exists
-		if itemCurrent.TopicReal != logMessage.Text || itemCurrent.ClientID != logMessage.ClientID {
-			// exists but with different naming or client, re-add it with the new one
-			h.remove(topicNorm)
-			h.add(itemCandidate)
-			// forward subscription with the real topic
-			h.Manager.Add(itemCandidate.TopicReal)
-			msg := "Subscription with different format or client exist %v, replaced and forwarded the new %#v"
-			h.Logger.Info(fmt.Sprintf(msg, itemCurrent, itemCandidate), nil)
-		} else {
-			h.Logger.Info(fmt.Sprintf("The same subscription exists %v, no action", itemCandidate), nil)
-		}
-	} else {
-		// new subscription
-		h.add(itemCandidate)
-		// forward subscription with the real topic
-		h.Manager.Add(itemCandidate.TopicReal)
-		h.Logger.Info(fmt.Sprintf("Forwarded new subscription %v", itemCandidate), nil)
-	}
-}
-
-func (h *LogHandler) add(item SubscriptionItem) {
-	h.SubcriptionList.PushBack(item)
-}
-
-func (h *LogHandler) remove(TopicID string) *SubscriptionItem {
-	for e := h.SubcriptionList.Front(); e != nil; e = e.Next() {
-		i := e.Value.(SubscriptionItem)
-		if i.TopicID == TopicID {
-			h.SubcriptionList.Remove(e)
-			return &i
-		}
-	}
-	return nil
-}
-
-func (h *LogHandler) removeClient(clientID string) *list.List {
-	removedList := list.New()
-
-	var next *list.Element
-	for e := h.SubcriptionList.Front(); e != nil; e = next {
-		next = e.Next()
-		i := e.Value.(SubscriptionItem)
-		if i.ClientID == clientID {
-			removedList.PushBack(h.SubcriptionList.Remove(e))
-		}
-	}
-
-	return removedList
-}
-
-func (h *LogHandler) get(TopicID string) *SubscriptionItem {
-	for e := h.SubcriptionList.Front(); e != nil; e = e.Next() {
-		i := e.Value.(SubscriptionItem)
-		if i.TopicID == TopicID {
-			return &i
-		}
-	}
-	return nil
-}
-
-type logMessageType int
-
-const (
-	// Subscription message type.
-	Subscription logMessageType = iota
-	// UnSubscription message type.
-	UnSubscription
-	// Disconnection message type.
-	Disconnection
-	// Termination message type.
-	Termination
-)
-
-// LogMessage represents a subscription message data.
-type LogMessage struct {
-	ClientID  string
-	Timestamp logTimestamp
-	Text      string
-	Type      logMessageType
 }
 
 // ParseLogMessage parse log message to logMessage structure
@@ -341,4 +262,82 @@ func parseLogMessageNoticeLevel(topic, message string) *LogMessage {
 		}
 	}
 	return nil
+}
+
+func (h *LogHandler) filterTopic(topic string) bool {
+	if strings.HasPrefix(topic, "command//+/") {
+		return true
+	}
+	return false
+}
+
+func (h *LogHandler) addSubscription(logMessage *LogMessage) {
+	topicNorm := util.NormalizeTopic(logMessage.Text)
+
+	if h.filterTopic(topicNorm) {
+		h.Logger.Debug(fmt.Sprintf("Subscription for topic %s is ignored", logMessage.Text), nil)
+		return
+	}
+
+	itemCandidate := &SubscriptionItem{
+		ClientID:  logMessage.ClientID,
+		Timestamp: logMessage.Timestamp,
+		TopicID:   topicNorm,
+		TopicReal: logMessage.Text,
+	}
+
+	// add new subscription
+	h.SubcriptionList.PushBack(itemCandidate)
+
+	// forward subscription with the normalized topic
+	if h.Manager.Add(topicNorm) {
+		h.Logger.Info(fmt.Sprintf("Forwarded new subscription %v", itemCandidate), nil)
+	} else {
+		h.Logger.Info(fmt.Sprintf("The same subscription exists %v, no action", itemCandidate), nil)
+	}
+}
+
+func (h *LogHandler) removeSubscription(logMessage *LogMessage) {
+	var found bool
+	for e := h.SubcriptionList.Front(); e != nil; e = e.Next() {
+		i := e.Value.(*SubscriptionItem)
+		if i.ClientID == logMessage.ClientID && i.TopicReal == logMessage.Text {
+			h.SubcriptionList.Remove(e)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return
+	}
+
+	topicNorm := util.NormalizeTopic(logMessage.Text)
+	// forward unsubscriptions with the normalized topic
+	if h.Manager.Remove(topicNorm) {
+		h.Logger.Info(fmt.Sprintf("Forwarded unsubscribe %s", topicNorm), nil)
+	} else {
+		h.Logger.Info(fmt.Sprintf("The same subscription stil exists %s, no action", topicNorm), nil)
+	}
+}
+
+func (h *LogHandler) removeAllSubscriptions(clientID string) {
+	subs := make([]*SubscriptionItem, 0)
+
+	for e := h.SubcriptionList.Front(); e != nil; e = e.Next() {
+		i := e.Value.(*SubscriptionItem)
+		if i.ClientID == clientID {
+			subs = append(subs, i)
+			h.SubcriptionList.Remove(e)
+		}
+	}
+
+	for _, sub := range subs {
+		if h.Manager.Remove(sub.TopicID) {
+			h.Logger.Info(fmt.Sprintf("Forwarded unsubscribe %s", sub.TopicID), nil)
+		} else {
+			h.Logger.Info(fmt.Sprintf("The same subscription stil exists %s, no action", sub.TopicID), nil)
+		}
+	}
+
 }

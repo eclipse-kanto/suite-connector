@@ -29,6 +29,7 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 
 	"github.com/eclipse-kanto/suite-connector/logger"
 	"github.com/eclipse-kanto/suite-connector/routing"
@@ -274,6 +275,8 @@ func CreateCloudConnection(
 
 // SetupTracing initializes the messages tracing.
 func SetupTracing(router *message.Router, logger logger.Logger) {
+	router.AddMiddleware(middleware.Recoverer)
+
 	tracingPrefixes := os.Getenv("TRACE_TOPIC_PREFIX")
 	if len(tracingPrefixes) > 0 {
 		router.AddMiddleware(conn.NewTrace(logger, strings.Split(tracingPrefixes, ",")))

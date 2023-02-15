@@ -24,14 +24,14 @@ import (
 )
 
 func TestNormalizing(t *testing.T) {
-	message := util.NormalizeTopic("command//4711 /req/#")
-	assert.Equal(t, message, "c//4711 /q/#")
+	message := util.NormalizeTopic("c//4711 /q/#")
+	assert.Equal(t, message, "command//4711 /req/#")
 
-	message = util.NormalizeTopic("command//4711 /q/#")
-	assert.Equal(t, message, "c//4711 /q/#")
+	message = util.NormalizeTopic("c///q/#")
+	assert.Equal(t, message, "command///req/#")
 
-	message = util.NormalizeTopic("c//4711 /req/#")
-	assert.Equal(t, message, "c//4711 /q/#")
+	message = util.NormalizeTopic("command//4711 /req/#")
+	assert.Equal(t, message, "command//4711 /req/#")
 }
 
 func TestParseCmdTopic(t *testing.T) {
