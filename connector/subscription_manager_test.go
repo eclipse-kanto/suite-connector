@@ -62,3 +62,23 @@ func TestRemoveSubscription(t *testing.T) {
 	assert.False(t, m.Remove(topicClientsTotal))
 	assert.False(t, m.Remove(topicClientsTotal))
 }
+
+func TestClearSubscriptions(t *testing.T) {
+	m := connector.NewSubscriptionManager()
+
+	config, err := testutil.NewLocalConfig()
+	config.CleanSession = true
+	require.NoError(t, err)
+
+	pubClient, err := connector.NewMQTTConnection(
+		config, "",
+		testutil.NewLogger("connector", logger.INFO, t),
+	)
+	require.NoError(t, err)
+
+	m.ForwardTo(pubClient)
+
+	assert.True(t, m.Add(topicClientsTotal))
+	m.Clear()
+	assert.False(t, m.Remove(topicClientsTotal))
+}

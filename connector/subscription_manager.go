@@ -25,6 +25,9 @@ type SubscriptionManager interface {
 	// Remove removes a subscription for the provided topic. Returns true if it does exist and was successfully unsubscribed.
 	Remove(topic string) bool
 
+	// Remove removes all subscriptions.
+	Clear()
+
 	// ForwardTo specifies the connection to which should be the messages forwarded.
 	ForwardTo(conn *MQTTConnection)
 }
@@ -87,17 +90,28 @@ func (m *subscriptionManager) remove0(topic string) bool {
 	return false
 }
 
+func (m *subscriptionManager) Clear() {
+	topics := m.copyTopics(true)
+
+	if connRef := m.conn.Load(); connRef != nil {
+		conn := connRef.(*MQTTConnection)
+		for _, topic := range topics {
+			conn.unsubscribe(topic, true)
+		}
+	}
+}
+
 func (m *subscriptionManager) ForwardTo(conn *MQTTConnection) {
 	m.conn.Store(conn)
 
-	topics := m.copyTopics()
+	topics := m.copyTopics(false)
 
 	for _, topic := range topics {
 		conn.subscribe(nil, QosAtMostOnce, topic)
 	}
 }
 
-func (m *subscriptionManager) copyTopics() []string {
+func (m *subscriptionManager) copyTopics(clear bool) []string {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -105,6 +119,11 @@ func (m *subscriptionManager) copyTopics() []string {
 	for topic := range m.topics {
 		result = append(result, topic)
 	}
+
+	if clear {
+		m.topics = make(map[string]int)
+	}
+
 	return result
 }
 
