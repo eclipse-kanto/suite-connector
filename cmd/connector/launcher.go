@@ -150,12 +150,15 @@ func (l *launcher) Run(
 			}
 			defer honoClient.Disconnect()
 
+			commandSub := fmt.Sprintf("command//%s/req/#", settings.DeviceID)
+
 			//Add subscription for the gateway commands
-			l.manager.Add(fmt.Sprintf("command//%s/req/#", settings.DeviceID))
+			l.manager.Add(commandSub)
 
 			<-l.signals
 
-			l.manager.Remove(fmt.Sprintf("command//%s/req/#", settings.DeviceID))
+			//Remove subscription for the gateway commands
+			l.manager.Remove(commandSub)
 
 			honoClient.RemoveConnectionListener(errorsHandler)
 			honoClient.RemoveConnectionListener(connHandler)
