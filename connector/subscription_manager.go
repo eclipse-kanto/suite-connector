@@ -25,8 +25,8 @@ type SubscriptionManager interface {
 	// Remove removes a subscription for the provided topic. Returns true if it does exist and was successfully unsubscribed.
 	Remove(topic string) bool
 
-	// Remove removes all subscriptions.
-	Clear()
+	// RemoveAll removes all subscriptions.
+	RemoveAll()
 
 	// ForwardTo specifies the connection to which should be the messages forwarded.
 	ForwardTo(conn *MQTTConnection)
@@ -90,7 +90,7 @@ func (m *subscriptionManager) remove0(topic string) bool {
 	return false
 }
 
-func (m *subscriptionManager) Clear() {
+func (m *subscriptionManager) RemoveAll() {
 	topics := m.copyTopics(true)
 
 	if connRef := m.conn.Load(); connRef != nil {

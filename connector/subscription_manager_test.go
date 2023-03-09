@@ -63,7 +63,7 @@ func TestRemoveSubscription(t *testing.T) {
 	assert.False(t, m.Remove(topicClientsTotal))
 }
 
-func TestClearSubscriptions(t *testing.T) {
+func TestRemoveAllSubscriptions(t *testing.T) {
 	m := connector.NewSubscriptionManager()
 
 	config, err := testutil.NewLocalConfig()
@@ -79,6 +79,6 @@ func TestClearSubscriptions(t *testing.T) {
 	m.ForwardTo(pubClient)
 
 	assert.True(t, m.Add(topicClientsTotal))
-	m.Clear()
+	m.RemoveAll()
 	assert.False(t, m.Remove(topicClientsTotal))
 }

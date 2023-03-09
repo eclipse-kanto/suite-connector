@@ -156,7 +156,7 @@ func (l *launcher) Run(
 			<-l.signals
 
 			//Remove all subscriptions for the gateway commands
-			l.manager.Clear()
+			l.manager.RemoveAll()
 
 			honoClient.RemoveConnectionListener(errorsHandler)
 			honoClient.RemoveConnectionListener(connHandler)
