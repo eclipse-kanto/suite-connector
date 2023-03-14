@@ -61,7 +61,7 @@ func TestCommandHandlersTestSuite(t *testing.T) {
 func (s *CommandHandlersTestSuite) SetupSuite() {
 	s.reqCache = cache.NewTTLCache()
 	s.requestHandler = routing.NewCommandRequestHandler(s.reqCache, deviceId)
-	s.responseHandler = routing.NewCommandResponseHandler(s.reqCache, deviceId)
+	s.responseHandler = routing.NewCommandResponseHandler(s.reqCache, "", deviceId)
 
 	response.Delete()
 }

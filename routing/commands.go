@@ -15,6 +15,8 @@ package routing
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/eclipse/ditto-clients-golang/protocol"
@@ -32,10 +34,6 @@ const (
 	TopicCommandResponse = "command//+/res/#,c//+/s/#"
 
 	msgInvalidCloudCommand = "invalid cloud command"
-)
-
-var (
-	errNoTopic = errors.New("no MQTT topic")
 )
 
 type cmdRequestHandler struct {
@@ -122,12 +120,15 @@ func CommandsReqBus(router *message.Router,
 
 type cmdResponseHandler struct {
 	reqCache *cache.Cache
+
+	prefix   string
 	deviceID string
 }
 
 // NewCommandResponseHandler returns the responses handler function.
-func NewCommandResponseHandler(reqCache *cache.Cache, deviceID string) message.HandlerFunc {
+func NewCommandResponseHandler(reqCache *cache.Cache, prefix string, deviceID string) message.HandlerFunc {
 	h := &cmdResponseHandler{
+		prefix:   prefix,
 		deviceID: deviceID,
 		reqCache: reqCache,
 	}
@@ -148,13 +149,29 @@ func (h *cmdResponseHandler) HandleResponse(msg *message.Message) ([]*message.Me
 		if h.reqCache.Remove(correlationID) {
 			cmdType, deviceID, suffix := util.ParseCmdTopic(topic)
 
-			if len(deviceID) == 0 {
-				topic = fmt.Sprintf("command//%s/res/%s", h.deviceID, suffix)
-				msg.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
-			} else if cmdType == "s" {
-				topic = fmt.Sprintf("command//%s/res/%s", deviceID, suffix)
-				msg.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
+			var buff strings.Builder
+			buff.Grow(64)
+
+			if len(h.prefix) > 0 {
+				buff.WriteString(h.prefix)
+				buff.WriteString("/")
 			}
+
+			if len(deviceID) == 0 {
+				buff.WriteString("command//")
+				buff.WriteString(h.deviceID)
+				buff.WriteString("/res/")
+				buff.WriteString(suffix)
+			} else if cmdType == "s" {
+				buff.WriteString("command//")
+				buff.WriteString(deviceID)
+				buff.WriteString("/res/")
+				buff.WriteString(suffix)
+			} else {
+				buff.WriteString(topic)
+			}
+
+			msg.SetContext(connector.SetTopicToCtx(msg.Context(), buff.String()))
 
 			return []*message.Message{msg}, nil
 		}
@@ -172,12 +189,14 @@ func CommandsResBus(router *message.Router,
 	reqCache *cache.Cache,
 	deviceID string,
 ) *message.Handler {
+	prefix := os.Getenv("COMMAND_RESPONSE_TOPIC_PREFIX")
+
 	//Gateway -> Mosquitto Broker -> Message bus -> Hono
 	return router.AddHandler("commands_response_bus",
 		TopicCommandResponse,
 		mosquittoSub,
 		connector.TopicEmpty,
 		honoPub,
-		NewCommandResponseHandler(reqCache, deviceID),
+		NewCommandResponseHandler(reqCache, prefix, deviceID),
 	)
 }

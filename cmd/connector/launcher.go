@@ -91,7 +91,8 @@ func (l *launcher) Run(
 	mosquittoSub := conn.NewSubscriber(cloudClient, conn.QosAtLeastOnce, false, logger, nil)
 	routing.CommandsResBus(router, honoPub, mosquittoSub, reqCache, settings.DeviceID)
 
-	routing.EventsBus(router, honoPub, mosquittoSub)
+	routing.EventsBus(router, honoPub, mosquittoSub, settings.TenantID, settings.DeviceID)
+	routing.TelemetryBus(router, honoPub, mosquittoSub, settings.TenantID, settings.DeviceID)
 
 	routing.CommandsReqBus(router,
 		conn.NewPublisher(cloudClient, conn.QosAtLeastOnce, logger, nil),
