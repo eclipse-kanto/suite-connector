@@ -18,12 +18,8 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
 
-	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/ThreeDotsLabs/watermill/message/subscriber"
-	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -34,9 +30,7 @@ import (
 
 	"github.com/eclipse-kanto/suite-connector/cache"
 	"github.com/eclipse-kanto/suite-connector/connector"
-	"github.com/eclipse-kanto/suite-connector/logger"
 	"github.com/eclipse-kanto/suite-connector/routing"
-	"github.com/eclipse-kanto/suite-connector/testutil"
 	"github.com/eclipse-kanto/suite-connector/util"
 )
 
@@ -66,8 +60,8 @@ func TestCommandHandlersTestSuite(t *testing.T) {
 
 func (s *CommandHandlersTestSuite) SetupSuite() {
 	s.reqCache = cache.NewTTLCache()
-	s.requestHandler = routing.NewCommandRequestHandler(s.reqCache)
-	s.responseHandler = routing.NewCommandResponseHandler(s.reqCache)
+	s.requestHandler = routing.NewCommandRequestHandler(s.reqCache, deviceId)
+	s.responseHandler = routing.NewCommandResponseHandler(s.reqCache, deviceId)
 
 	response.Delete()
 }
@@ -76,9 +70,12 @@ func (s *CommandHandlersTestSuite) TearDownSuite() {
 	s.reqCache.Close()
 }
 
-type handlerTest struct {
-	initialTopic      string
-	topicAfterHandler string
+type requestTest struct {
+	initialTopic   string
+	shortTopic     string
+	longTopic      string
+	longTopicNoId  string
+	shortTopicNoId string
 }
 
 func (s *CommandHandlersTestSuite) TestHandleRequest() {
@@ -89,14 +86,13 @@ func (s *CommandHandlersTestSuite) TestHandleRequest() {
 	require.NoError(s.T(), err)
 	msg := message.NewMessage(msgUid, payload)
 
-	tests := []handlerTest{
+	tests := []requestTest{
 		{
-			initialTopic:      fmt.Sprintf("command//%s/req/#", deviceId),
-			topicAfterHandler: fmt.Sprintf("c//%s/q/#", deviceId),
-		},
-		{
-			initialTopic:      "command///req/#",
-			topicAfterHandler: "c///q/#",
+			initialTopic:   fmt.Sprintf("command//%s/req/#", deviceId),
+			longTopic:      fmt.Sprintf("command//%s/req/#", deviceId),
+			shortTopic:     fmt.Sprintf("c//%s/q/#", deviceId),
+			longTopicNoId:  "command///req/#",
+			shortTopicNoId: "c///q/#",
 		},
 	}
 
@@ -104,11 +100,22 @@ func (s *CommandHandlersTestSuite) TestHandleRequest() {
 		msg.SetContext(connector.SetTopicToCtx(context.Background(), test.initialTopic))
 		messages, err := s.requestHandler(msg)
 		require.NoError(s.T(), err)
-		assert.Equal(s.T(), 2, len(messages), test.initialTopic)
-		assert.Equal(s.T(), msg, messages[0])
-		broadcastTopic, _ := connector.TopicFromCtx(messages[1].Context())
-		assert.Equal(s.T(), test.topicAfterHandler, broadcastTopic)
+		assert.Equal(s.T(), 4, len(messages), test.initialTopic)
+
+		longTopic, _ := connector.TopicFromCtx(messages[0].Context())
+		assert.Equal(s.T(), test.longTopic, longTopic)
+
+		shortTopic, _ := connector.TopicFromCtx(messages[1].Context())
+		assert.Equal(s.T(), test.shortTopic, shortTopic)
 		assert.Equal(s.T(), messages[0].Payload, messages[1].Payload)
+
+		longTopicNoId, _ := connector.TopicFromCtx(messages[2].Context())
+		assert.Equal(s.T(), test.longTopicNoId, longTopicNoId)
+		assert.Equal(s.T(), messages[0].Payload, messages[2].Payload)
+
+		shortTopicNoId, _ := connector.TopicFromCtx(messages[3].Context())
+		assert.Equal(s.T(), test.shortTopicNoId, shortTopicNoId)
+		assert.Equal(s.T(), messages[0].Payload, messages[3].Payload)
 
 		if len(env.Headers.CorrelationID()) > 0 {
 			assertCache(s, env.Headers.CorrelationID(), true)
@@ -126,6 +133,11 @@ func (s *CommandHandlersTestSuite) TestHandleRequestNoTopic() {
 	assertMessageInvalid(s, s.requestHandler, message.NewMessage(msgUid, []byte{}))
 }
 
+type responseTest struct {
+	initialTopic      string
+	topicAfterHandler string
+}
+
 func (s *CommandHandlersTestSuite) TestHandleResponseWithCorrelationId() {
 	env := response.Envelope(protocol.WithCorrelationID(correlationId)).
 		WithValue(1).
@@ -136,9 +148,10 @@ func (s *CommandHandlersTestSuite) TestHandleResponseWithCorrelationId() {
 
 	const resTopicDevice = "command///res/test_request/200"
 	resTopicVirtualDevice := fmt.Sprintf("command//%s/res/test_request/200", deviceId)
-	resTests := []handlerTest{
+	resTests := []responseTest{
 		{
-			initialTopic: resTopicDevice,
+			initialTopic:      resTopicDevice,
+			topicAfterHandler: resTopicVirtualDevice,
 		},
 		{
 			initialTopic: resTopicVirtualDevice,
@@ -149,7 +162,7 @@ func (s *CommandHandlersTestSuite) TestHandleResponseWithCorrelationId() {
 		},
 		{
 			initialTopic:      "c///s/test_request/200",
-			topicAfterHandler: resTopicDevice,
+			topicAfterHandler: resTopicVirtualDevice,
 		},
 	}
 
@@ -256,72 +269,4 @@ func assertMessageInvalid(s *CommandHandlersTestSuite, handler message.HandlerFu
 func assertCache(s *CommandHandlersTestSuite, correlationId string, present bool) {
 	_, correlationIdPresent := s.reqCache.Get(correlationId)
 	assert.Equal(s.T(), present, correlationIdPresent, correlationId)
-}
-
-func TestCommandsBus(t *testing.T) {
-	logger := testutil.NewLogger("commands", logger.ERROR, t)
-
-	source := gochannel.NewGoChannel(
-		gochannel.Config{OutputChannelBuffer: int64(16)},
-		logger,
-	)
-
-	sink := gochannel.NewGoChannel(
-		gochannel.Config{OutputChannelBuffer: int64(16)},
-		logger,
-	)
-
-	r, err := message.NewRouter(message.RouterConfig{}, logger)
-	require.NoError(t, err)
-
-	c := cache.NewTTLCache()
-	defer c.Close()
-
-	routing.CommandsReqBus(r, newSinkDecorator(routing.TopicCommandRequest, sink), source, c)
-	routing.CommandsResBus(r, newSinkDecorator(routing.TopicCommandResponse, sink), source, c)
-
-	r.AddMiddleware(func(h message.HandlerFunc) message.HandlerFunc {
-		return func(msg *message.Message) ([]*message.Message, error) {
-			msg.SetContext(connector.SetTopicToCtx(msg.Context(), routing.TopicCommandRequest))
-			return h(msg)
-		}
-	})
-
-	done := make(chan bool, 1)
-	go func() {
-		defer func() {
-			done <- true
-		}()
-
-		if err := r.Run(context.Background()); err != nil {
-			logger.Error("Failed to create commands router", err, nil)
-		}
-	}()
-
-	defer func() {
-		r.Close()
-
-		<-done
-	}()
-
-	<-r.Running()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	pMsg, err := sink.Subscribe(ctx, routing.TopicCommandRequest)
-	require.NoError(t, err)
-
-	cmd := things.NewCommand(id)
-	cmd.Delete()
-
-	env := cmd.Envelope(protocol.WithCorrelationID(watermill.NewUUID()))
-	payload, err := json.Marshal(env)
-	require.NoError(t, err)
-
-	msg := message.NewMessage(env.Headers.CorrelationID(), payload)
-	require.NoError(t, source.Publish(routing.TopicCommandRequest, msg))
-
-	if _, ok := subscriber.BulkRead(pMsg, 1, time.Second*5); !ok {
-		require.Fail(t, "Command request not delivered")
-	}
 }

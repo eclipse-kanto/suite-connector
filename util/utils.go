@@ -22,14 +22,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NormalizeTopic convert command topics to short form
+// NormalizeTopic convert command topics to long form
 func NormalizeTopic(topic string) string {
-	if strings.HasPrefix(topic, "command/") {
-		topic = strings.Replace(topic, "command", "c", 1)
+	if strings.HasPrefix(topic, "c//") {
+		topic = strings.Replace(topic, "c", "command", 1)
 	}
 
-	if strings.HasSuffix(topic, "/req/#") {
-		topic = strings.Replace(topic, "/req/#", "/q/#", 1)
+	if strings.HasSuffix(topic, "/q/#") {
+		topic = strings.Replace(topic, "/q/#", "/req/#", 1)
 	}
 	return topic
 }

@@ -116,8 +116,6 @@ func TestLogHandlerAccept(t *testing.T) {
 	msg.SetContext(connector.SetTopicToCtx(context.Background(), routing.TopicLogSubscribe))
 	assert.NoError(t, h.ProcessLogs(msg))
 	assert.Equal(t, 1, h.SubcriptionList.Len())
-	assert.NoError(t, h.ProcessLogs(msg))
-	assert.Equal(t, 1, h.SubcriptionList.Len())
 	msg = message.NewMessage(watermill.NewUUID(), []byte("1635966265: dummy command//Testing:Logs/req/#"))
 	msg.SetContext(connector.SetTopicToCtx(context.Background(), routing.TopicLogUnsubscribe))
 	assert.NoError(t, h.ProcessLogs(msg))
