@@ -15,104 +15,155 @@ package routing_test
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/ThreeDotsLabs/watermill/message/subscriber"
-	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
-	"go.uber.org/goleak"
 
-	"github.com/eclipse-kanto/suite-connector/logger"
+	"github.com/eclipse-kanto/suite-connector/connector"
 	"github.com/eclipse-kanto/suite-connector/routing"
-	"github.com/eclipse-kanto/suite-connector/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
 const (
 	sinkTopic = "sink/"
 )
 
-func TestEventsBus(t *testing.T) {
-	defer goleak.VerifyNone(t)
+type EventHandlersTestSuite struct {
+	suite.Suite
 
-	logger := testutil.NewLogger("events", logger.ERROR, t)
+	eventsHandler message.HandlerFunc
+}
 
-	router, err := message.NewRouter(message.RouterConfig{}, logger)
-	require.NoError(t, err)
+func (s *EventHandlersTestSuite) TestHandleEventNoTopic() {
+	messages, err := s.eventsHandler(message.NewMessage(watermill.NewShortUUID(), []byte("{}")))
+	assert.Nil(s.T(), messages)
+	assert.Error(s.T(), err)
+}
 
-	source := gochannel.NewGoChannel(
-		gochannel.Config{
-			Persistent:          true,
-			OutputChannelBuffer: int64(16),
+type eventsTest struct {
+	initialTopic      string
+	topicAfterHandler string
+}
+
+func (s *EventHandlersTestSuite) TestHandleEvents() {
+	eventsTest := []eventsTest{
+		{
+			initialTopic:      "e",
+			topicAfterHandler: "event/testTenant/testDevice",
 		},
-		logger,
-	)
-
-	sink := gochannel.NewGoChannel(
-		gochannel.Config{
-			Persistent:          true,
-			OutputChannelBuffer: int64(16),
+		{
+			initialTopic:      "t",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
 		},
-		logger,
-	)
+		{
+			initialTopic:      "e/",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "t/",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "event",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "telemetry",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "event/",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "telemetry/",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "e/testTenant/testDevice",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "t/testTenant/testDevice",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "e//testDevice",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "t//testDevice",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "event//testDevice",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "telemetry//testDevice",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "event/testTenant/testDevice",
+			topicAfterHandler: "event/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "telemetry/testTenant/testDevice",
+			topicAfterHandler: "telemetry/testTenant/testDevice",
+		},
+		{
+			initialTopic:      "event/testTenant/testAnotherDevice",
+			topicAfterHandler: "event/testTenant/testAnotherDevice",
+		},
+		{
+			initialTopic:      "telemetry/testTenant/testAnotherDevice",
+			topicAfterHandler: "telemetry/testTenant/testAnotherDevice",
+		},
+		{
+			initialTopic:      "event/testTenant/testAnotherDevice/testing",
+			topicAfterHandler: "event/testTenant/testAnotherDevice/testing",
+		},
+		{
+			initialTopic:      "telemetry/testTenant/testAnotherDevice/testing",
+			topicAfterHandler: "telemetry/testTenant/testAnotherDevice/testing",
+		},
+	}
 
-	pub := newSinkDecorator(sinkTopic, sink)
-	routing.EventsBus(router, pub, source)
-	routing.TelemetryBus(router, pub, source)
+	for _, test := range eventsTest {
+		msg := message.NewMessage(watermill.NewShortUUID(), []byte("{}"))
+		msg.SetContext(connector.SetTopicToCtx(context.Background(), test.initialTopic))
 
-	done := make(chan bool, 1)
-	go func() {
-		defer func() {
-			done <- true
-		}()
+		messages, err := s.eventsHandler(msg)
+		require.NoError(s.T(), err)
+		assert.Equal(s.T(), len(messages), 1)
 
-		if err := router.Run(context.Background()); err != nil {
-			logger.Error("Failed to create cloud router", err, nil)
-		}
-	}()
-
-	defer func() {
-		router.Close()
-
-		<-done
-	}()
-
-	<-router.Running()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sMsg, err := sink.Subscribe(ctx, sinkTopic)
-	require.NoError(t, err)
-
-	msg := message.NewMessage("hello", []byte("{}"))
-	require.NoError(t, source.Publish(routing.TopicsEvent, msg))
-	require.NoError(t, source.Publish(routing.TopicsTelemetry, msg))
-
-	receivedMsgs, ok := subscriber.BulkRead(sMsg, 2, time.Second*3)
-	require.True(t, ok)
-	for _, msg := range receivedMsgs {
-		assert.Equal(t, "{}", string(msg.Payload))
+		actualTopic, ok := connector.TopicFromCtx(messages[0].Context())
+		assert.True(s.T(), ok)
+		assert.Equal(s.T(), test.topicAfterHandler, actualTopic)
+		assert.Equal(s.T(), msg.Payload, messages[0].Payload)
 	}
 }
 
-func newSinkDecorator(sinkTopic string, pub message.Publisher) message.Publisher {
-	return &sinkdecorator{
-		sinkTopic: sinkTopic,
-		pub:       pub,
+func TestEventHandlersTestSuite(t *testing.T) {
+	s := &EventHandlersTestSuite{
+		eventsHandler: routing.NewEventsHandler("", "testTenant", "testDevice"),
 	}
+	suite.Run(t, s)
 }
 
-type sinkdecorator struct {
-	sinkTopic string
-	pub       message.Publisher
-}
+func TestEventTopicPrefix(t *testing.T) {
+	msg := message.NewMessage(watermill.NewShortUUID(), []byte("{}"))
+	msg.SetContext(connector.SetTopicToCtx(context.Background(), "event/testTenant/testAnotherDevice/testing"))
 
-func (p *sinkdecorator) Publish(topic string, messages ...*message.Message) error {
-	return p.pub.Publish(p.sinkTopic, messages...)
-}
+	eventsHandler := routing.NewEventsHandler("prefix", "testTenant", "testDevice")
+	messages, err := eventsHandler(msg)
+	require.NoError(t, err)
+	assert.Equal(t, len(messages), 1)
 
-func (p *sinkdecorator) Close() error {
-	return p.pub.Close()
+	actualTopic, ok := connector.TopicFromCtx(messages[0].Context())
+	assert.True(t, ok)
+	assert.Equal(t, "prefix/event/testTenant/testAnotherDevice/testing", actualTopic)
 }
