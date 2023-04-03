@@ -24,13 +24,13 @@ import (
 func AddTimestamp(h message.HandlerFunc) message.HandlerFunc {
 	return func(msg *message.Message) ([]*message.Message, error) {
 		timestamp := time.Now().UnixMilli()
-		if payload, err := sjson.SetBytes(msg.Payload, "headers.x-timestamp", timestamp); err != nil {
+		payload, err := sjson.SetBytes(msg.Payload, "headers.x-timestamp", timestamp)
+		if err != nil {
 			return nil, err
-		} else {
-			event := message.NewMessage(msg.UUID, payload)
-			event.SetContext(msg.Context())
-
-			return h(event)
 		}
+
+		event := message.NewMessage(msg.UUID, payload)
+		event.SetContext(msg.Context())
+		return h(event)
 	}
 }
