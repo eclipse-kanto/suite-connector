@@ -33,9 +33,9 @@ func noClean() {
 // TLSSettings represents the TLS configuration data.
 type TLSSettings struct {
 	CACert string `json:"caCert"`
-
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
+	Cert   string `json:"cert"`
+	Key    string `json:"key"`
+	Alpn   string `json:"alpn"`
 
 	TPMKey    string `json:"tpmKey"`
 	TPMKeyPub string `json:"tpmKeyPub"`
@@ -45,29 +45,16 @@ type TLSSettings struct {
 
 // NewHubTLSConfig initializes the Hub TLS.
 func NewHubTLSConfig(settings *TLSSettings, logger watermill.LoggerAdapter) (*tls.Config, Cleaner, error) {
-	caCertPool, err := NewCAPool(settings.CACert)
+	cfg, clean, err := newHubTLSConfig0(settings, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, clean, err
 	}
 
-	if len(settings.TPMDevice) > 0 {
-		return NewTPMTlsConfig(settings, caCertPool, logger)
+	if len(settings.Alpn) > 0 {
+		cfg.NextProtos = []string{settings.Alpn}
 	}
 
-	if len(settings.Cert) > 0 || len(settings.Key) > 0 {
-		cfg, err := NewFSTlsConfig(caCertPool, settings.Cert, settings.Key)
-		return cfg, noClean, err
-	}
-
-	cfg := &tls.Config{
-		InsecureSkipVerify: false,
-		RootCAs:            caCertPool,
-		MinVersion:         tls.VersionTLS12,
-		MaxVersion:         tls.VersionTLS13,
-		CipherSuites:       supportedCipherSuites(),
-	}
-
-	return cfg, noClean, nil
+	return cfg, clean, err
 }
 
 // NewLocalTLSConfig initializes the Local broker TLS.
@@ -173,6 +160,32 @@ func NewTPMTlsConfig(
 	}
 
 	return tlsConfig, closer, nil
+}
+
+func newHubTLSConfig0(settings *TLSSettings, logger watermill.LoggerAdapter) (*tls.Config, Cleaner, error) {
+	caCertPool, err := NewCAPool(settings.CACert)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(settings.TPMDevice) > 0 {
+		return NewTPMTlsConfig(settings, caCertPool, logger)
+	}
+
+	if len(settings.Cert) > 0 || len(settings.Key) > 0 {
+		cfg, err := NewFSTlsConfig(caCertPool, settings.Cert, settings.Key)
+		return cfg, noClean, err
+	}
+
+	cfg := &tls.Config{
+		InsecureSkipVerify: false,
+		RootCAs:            caCertPool,
+		MinVersion:         tls.VersionTLS12,
+		MaxVersion:         tls.VersionTLS13,
+		CipherSuites:       supportedCipherSuites(),
+	}
+
+	return cfg, noClean, nil
 }
 
 func supportedCipherSuites() []uint16 {

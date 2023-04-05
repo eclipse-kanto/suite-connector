@@ -120,6 +120,10 @@ func AddTLS(f *flag.FlagSet, settings, def *config.TLSSettings) {
 		"key", def.Key,
 		"A PEM encoded unencrypted private key `file` for cloud access",
 	)
+	f.StringVar(&settings.Alpn,
+		"alpn", def.Alpn,
+		"TLS application layer protocol negotiation option for cloud access",
+	)
 	f.StringVar(&settings.TPMKey,
 		"tpmKey", def.TPMKey,
 		"Private part of TPM2 key `file`",
