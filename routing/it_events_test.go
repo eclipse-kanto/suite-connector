@@ -100,7 +100,7 @@ func TestEventsBus(t *testing.T) {
 
 	msg := message.NewMessage("hello", []byte("{}"))
 	pub := connector.NewPublisher(client, connector.QosAtLeastOnce, logger, nil)
-	require.NoError(t, pub.Publish("event/testTenant/testDevice", msg))
+	require.NoError(t, pub.Publish("telemetry/testTenant/testDevice", msg))
 
 	receivedMsgs, ok := subscriber.BulkRead(sMsg, 1, time.Second*5)
 	require.True(t, ok)

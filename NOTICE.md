@@ -58,6 +58,30 @@ cenkalti/backoff (3.0.0)
 * Project: https://github.com/cenkalti/backoff
 * Source:  https://github.com/cenkalti/backoff/releases/tag/v3.0.0
 
+tidwall/sjson (v1.2.5)
+
+* License: MIT License
+* Project: https://github.com/tidwall/sjson
+* Source:  https://github.com/tidwall/sjson/releases/tag/v1.2.5
+
+tidwall/gjson (v1.14.2)
+
+* License: MIT License
+* Project: https://github.com/tidwall/gjson
+* Source:  https://github.com/tidwall/gjson/releases/tag/v1.14.2
+
+tidwall/match (v1.1.1)
+
+* License: MIT License
+* Project: https://github.com/tidwall/match
+* Source:  https://github.com/tidwall/match/releases/tag/v1.1.1
+
+tidwall/pretty (v1.2.0)
+
+* License: MIT License
+* Project: https://github.com/tidwall/pretty
+* Source:  https://github.com/tidwall/pretty/releases/tag/v1.2.0
+
 eclipse/ditto-clients-golang (0.0.0-20220225085802-cf3b306280d3)
 
 * License: Eclipse Public License v2.0
@@ -148,7 +172,7 @@ golang.org/x/net (0.7.0)
 * Project: https://github.com/golang/net
 * Source:  https://github.com/golang/net/releases/tag/v0.7.0
 
-golang.org/x/sync (v0.0.0-20210220032951-036812b2e83c)
+golang.org/x/sync (v0.0.0-20220722155255-886fb9371eb4)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/sync

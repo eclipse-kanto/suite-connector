@@ -103,13 +103,17 @@ func EventsBus(router *message.Router,
 	prefix := os.Getenv("EVENTS_TOPIC_PREFIX")
 
 	//Gateway -> Mosquitto Broker -> Message bus -> Hono
-	return router.AddHandler("events_bus",
+	eventsBus := router.AddHandler("events_bus",
 		TopicsEvent,
 		mosquittoSub,
 		connector.TopicEmpty,
 		honoPub,
 		NewEventsHandler(prefix, tenantID, deviceID),
 	)
+
+	eventsBus.AddMiddleware(AddTimestamp)
+
+	return eventsBus
 }
 
 // TelemetryBus creates bus for telemetry messages.
