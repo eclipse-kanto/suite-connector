@@ -64,6 +64,28 @@ func TestUseCertificateSettingsOK(t *testing.T) {
 	defer clean()
 }
 
+func TestCertificateSettingsWithAlpn(t *testing.T) {
+	certFile := "testdata/certificate.pem"
+	keyFile := "testdata/key.pem"
+
+	logger := watermill.NopLogger{}
+
+	settings := &config.TLSSettings{
+		CACert: certFile,
+		Cert:   certFile,
+		Key:    keyFile,
+		Alpn:   []string{"x-test"},
+	}
+
+	cfg, clean, err := config.NewHubTLSConfig(settings, logger)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	defer clean()
+
+	require.Equal(t, 1, len(cfg.NextProtos))
+	assert.Equal(t, "x-test", cfg.NextProtos[0])
+}
+
 func TestUseCertificateSettingsFail(t *testing.T) {
 	certFile := "testdata/certificate.pem"
 	keyFile := "testdata/key.pem"
