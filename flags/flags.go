@@ -108,6 +108,10 @@ func AddHub(f *flag.FlagSet, settings, def *config.HubConnectionSettings) {
 
 // AddTLS add the TLS connection related flags.
 func AddTLS(f *flag.FlagSet, settings, def *config.TLSSettings) {
+	f.Var(NewStringSliceV(&settings.Alpn),
+		"alpn",
+		"TLS application layer protocol negotiation options space separated for cloud access",
+	)
 	f.StringVar(&settings.CACert,
 		flagCACert, def.CACert,
 		"A PEM encoded CA certificates `file`",

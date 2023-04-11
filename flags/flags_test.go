@@ -58,6 +58,7 @@ func TestFlagsMappings(t *testing.T) {
 		"-authId=I",
 		"-caCert=J",
 		"-cert=K",
+		"-alpn=U",
 		"-key=L",
 		"-tpmKey=M",
 		"-tpmKeyPub=N",
@@ -91,6 +92,7 @@ func TestFlagsMappings(t *testing.T) {
 	assert.Equal(t, "J", cmd.CACert)
 	assert.Equal(t, "K", cmd.Cert)
 	assert.Equal(t, "L", cmd.Key)
+	assert.Equal(t, []string{"U"}, cmd.Alpn)
 	assert.Equal(t, "M", cmd.TPMKey)
 	assert.Equal(t, "N", cmd.TPMKeyPub)
 	assert.EqualValues(t, 0x1234, cmd.TPMHandle)
