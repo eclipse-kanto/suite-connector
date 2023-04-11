@@ -32,10 +32,10 @@ func noClean() {
 
 // TLSSettings represents the TLS configuration data.
 type TLSSettings struct {
-	CACert string `json:"caCert"`
-	Cert   string `json:"cert"`
-	Key    string `json:"key"`
-	Alpn   string `json:"alpn"`
+	CACert string   `json:"caCert"`
+	Cert   string   `json:"cert"`
+	Key    string   `json:"key"`
+	Alpn   []string `json:"alpn"`
 
 	TPMKey    string `json:"tpmKey"`
 	TPMKeyPub string `json:"tpmKeyPub"`
@@ -51,7 +51,9 @@ func NewHubTLSConfig(settings *TLSSettings, logger watermill.LoggerAdapter) (*tl
 	}
 
 	if len(settings.Alpn) > 0 {
-		cfg.NextProtos = []string{settings.Alpn}
+		alpn := make([]string, len(settings.Alpn))
+		copy(alpn, settings.Alpn)
+		cfg.NextProtos = alpn
 	}
 
 	return cfg, clean, err

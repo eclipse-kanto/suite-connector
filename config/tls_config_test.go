@@ -74,7 +74,7 @@ func TestCertificateSettingsWithAlpn(t *testing.T) {
 		CACert: certFile,
 		Cert:   certFile,
 		Key:    keyFile,
-		Alpn:   "x-test",
+		Alpn:   []string{"x-test"},
 	}
 
 	cfg, clean, err := config.NewHubTLSConfig(settings, logger)
