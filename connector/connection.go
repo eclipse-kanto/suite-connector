@@ -221,6 +221,11 @@ func (c *MQTTConnection) URL() string {
 	return c.config.URL
 }
 
+// AuthErrRetries returns number of retry attempts on authorization failure
+func (c *MQTTConnection) AuthErrRetries() int64 {
+	return c.config.AuthErrRetries
+}
+
 // ClientID returns the connection client ID.
 func (c *MQTTConnection) ClientID() string {
 	return c.clientID
@@ -504,6 +509,7 @@ func (c *MQTTConnection) externalReconnect(client mqtt.Client) {
 	b := c.ConnectBackoff()
 	b.Reset()
 
+	var authErrRetries int64
 	for {
 		if c.running.IsNotSet() {
 			return
@@ -537,14 +543,13 @@ func (c *MQTTConnection) externalReconnect(client mqtt.Client) {
 			c.logger.Error("Reconnect failed", err, logFields)
 
 			//Handle forced connection close by the broker
-			if errors.Is(err, packets.ErrorRefusedBadUsernameOrPassword) {
+			if errors.Is(err, packets.ErrorRefusedBadUsernameOrPassword) ||
+				errors.Is(err, packets.ErrorRefusedNotAuthorised) {
+				authErrRetries++
 				c.fireConnectionEvent(false, err)
-				return
-			}
-
-			if errors.Is(err, packets.ErrorRefusedNotAuthorised) {
-				c.fireConnectionEvent(false, err)
-				return
+				if authErrRetries == c.config.AuthErrRetries {
+					return
+				}
 			}
 
 		} else {
