@@ -31,7 +31,10 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/eclipse/paho.mqtt.golang/packets"
 )
 
 func TestLocalConnect(t *testing.T) {
@@ -89,5 +92,37 @@ func TestDummyHonoConnect(t *testing.T) {
 	client.Disconnect()
 
 	require.NoError(t, config.HonoConnect(nil, statusPub, client, logger))
+	client.Disconnect()
+}
+
+func TestHonoConnectAuthError(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
+	cfg, err := testutil.NewLocalConfig()
+	require.NoError(t, err)
+
+	cfg.Credentials.UserName = "invalid"
+	cfg.Credentials.Password = "invalid"
+	cfg.ConnectTimeout = 5 * time.Second
+	cfg.MinReconnectInterval = 2 * time.Second
+	cfg.MaxReconnectInterval = 5 * time.Second
+	cfg.BackoffMultiplier = 2
+	cfg.AuthErrRetries = 2
+
+	logger := testutil.NewLogger("connections", logger.ERROR, t)
+
+	client, err := conn.NewMQTTConnection(cfg, watermill.NewShortUUID(), logger)
+	require.NoError(t, err)
+
+	statusPub := gochannel.NewGoChannel(
+		gochannel.Config{
+			Persistent:          true,
+			OutputChannelBuffer: int64(10),
+		},
+		logger,
+	)
+	defer statusPub.Close()
+
+	assert.ErrorIs(t, config.HonoConnect(nil, statusPub, client, logger), packets.ErrorRefusedNotAuthorised)
 	client.Disconnect()
 }

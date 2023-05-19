@@ -53,6 +53,7 @@ type Configuration struct {
 	ConnectRetryInterval time.Duration
 
 	ExternalReconnect    bool
+	AuthErrRetries       int64
 	BackoffMultiplier    float64
 	MaxReconnectInterval time.Duration
 	MinReconnectInterval time.Duration
@@ -90,6 +91,10 @@ func (c *Configuration) Validate() error {
 		return errors.New("MinReconnectInterval > MaxReconnectInterval")
 	}
 
+	if c.AuthErrRetries < 1 {
+		return errors.New("AuthErrRetries < 1")
+	}
+
 	if c.BackoffMultiplier < 1 {
 		return errors.New("BackoffMultiplier < 1")
 	}
@@ -111,6 +116,7 @@ func NewMQTTClientConfig(broker string) (*Configuration, error) {
 		ConnectRetryInterval: connectRetryInterval,
 		MinReconnectInterval: maxReconnectInterval,
 		MaxReconnectInterval: maxReconnectInterval,
+		AuthErrRetries:       1,
 		BackoffMultiplier:    2,
 	}, nil
 }

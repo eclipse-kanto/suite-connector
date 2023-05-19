@@ -40,6 +40,7 @@ func TestReconnectIntervalValid(t *testing.T) {
 	config, err := testutil.NewLocalConfig()
 	require.NoError(t, err)
 
+	config.AuthErrRetries = 3
 	config.BackoffMultiplier = 1.5
 	config.MinReconnectInterval = 2 * time.Second
 	config.MaxReconnectInterval = 10 * time.Second
@@ -66,5 +67,9 @@ func TestReconnectIntervalInvalid(t *testing.T) {
 
 	config.MaxReconnectInterval = 10 * time.Second
 	config.BackoffMultiplier = 0.2
+	assert.Error(t, config.Validate())
+
+	config.BackoffMultiplier = 2.0
+	config.AuthErrRetries = 0
 	assert.Error(t, config.Validate())
 }

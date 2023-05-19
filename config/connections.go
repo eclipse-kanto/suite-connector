@@ -37,6 +37,8 @@ import (
 	"github.com/eclipse/ditto-clients-golang/model"
 
 	conn "github.com/eclipse-kanto/suite-connector/connector"
+
+	"github.com/eclipse/paho.mqtt.golang/packets"
 )
 
 var (
@@ -139,6 +141,7 @@ func CreateHubConnection(
 	honoConfig.NoOpStore = nopStore
 	honoConfig.ConnectRetryInterval = 0
 
+	honoConfig.AuthErrRetries = 5
 	honoConfig.BackoffMultiplier = 2
 	honoConfig.MinReconnectInterval = time.Minute
 	honoConfig.MaxReconnectInterval = 4 * time.Minute
@@ -149,6 +152,10 @@ func CreateHubConnection(
 
 	if max, err := strconv.ParseInt(os.Getenv("HUB_CONNECT_MAX"), 0, 64); err == nil {
 		honoConfig.MaxReconnectInterval = time.Duration(max) * time.Second
+	}
+
+	if retries, err := strconv.ParseInt(os.Getenv("HUB_CONNECT_AUTH_ERR_RETRIES"), 0, 64); err == nil {
+		honoConfig.AuthErrRetries = retries
 	}
 
 	if mul, err := strconv.ParseFloat(os.Getenv("HUB_CONNECT_MUL"), 32); err == nil {
@@ -408,6 +415,7 @@ func HonoConnect(sigs chan os.Signal,
 		"client_id": honoClient.ClientID(),
 	}
 
+	var authErrRetries int64
 	for {
 		future := honoClient.Connect()
 
@@ -419,7 +427,15 @@ func HonoConnect(sigs chan os.Signal,
 				cause, retry := routing.StatusCause(err)
 				routing.SendStatus(cause, statusPub, logger)
 				if !retry {
-					return err
+					if errors.Is(err, packets.ErrorRefusedBadUsernameOrPassword) ||
+						errors.Is(err, packets.ErrorRefusedNotAuthorised) {
+						authErrRetries++
+						if authErrRetries == honoClient.AuthErrRetries() {
+							return err
+						}
+					} else {
+						return err
+					}
 				}
 
 			} else {
