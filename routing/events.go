@@ -33,14 +33,17 @@ type eventsHandler struct {
 	prefix   string
 	tenantID string
 	deviceID string
+
+	generic bool
 }
 
 // NewEventsHandler returns the events handler function.
-func NewEventsHandler(prefix string, tenantID string, deviceID string) message.HandlerFunc {
+func NewEventsHandler(prefix string, tenantID string, deviceID string, generic bool) message.HandlerFunc {
 	h := &eventsHandler{
 		prefix:   prefix,
 		tenantID: tenantID,
 		deviceID: deviceID,
+		generic:  generic,
 	}
 
 	return h.HandleEvent
@@ -67,9 +70,9 @@ func (h *eventsHandler) HandleEvent(msg *message.Message) ([]*message.Message, e
 		}
 
 		var buff strings.Builder
-		buff.Grow(64)
+		buff.Grow(256)
 
-		if len(h.prefix) > 0 {
+		if h.generic && len(h.prefix) > 0 {
 			buff.WriteString(h.prefix)
 			buff.WriteString("/")
 		}
@@ -78,7 +81,19 @@ func (h *eventsHandler) HandleEvent(msg *message.Message) ([]*message.Message, e
 		buff.WriteString("/")
 		buff.WriteString(tenID)
 		buff.WriteString("/")
-		buff.WriteString(devID)
+
+		if h.generic {
+			//Add special gatewayID/stripped(deviceID) prefix
+			buff.WriteString(h.deviceID)
+			buff.WriteString("/")
+			stripped, err := stripGatewayID(h.deviceID, devID)
+			if err != nil {
+				return nil, err
+			}
+			buff.WriteString(stripped)
+		} else {
+			buff.WriteString(devID)
+		}
 
 		//Fix missing suffix
 		for i := 3; i < len(segments); i++ {
@@ -97,8 +112,8 @@ func (h *eventsHandler) HandleEvent(msg *message.Message) ([]*message.Message, e
 func EventsBus(router *message.Router,
 	honoPub message.Publisher,
 	mosquittoSub message.Subscriber,
-	tenantID string,
-	deviceID string,
+	tenantID, deviceID string,
+	generic bool,
 ) *message.Handler {
 	prefix := os.Getenv("EVENTS_TOPIC_PREFIX")
 
@@ -108,10 +123,12 @@ func EventsBus(router *message.Router,
 		mosquittoSub,
 		connector.TopicEmpty,
 		honoPub,
-		NewEventsHandler(prefix, tenantID, deviceID),
+		NewEventsHandler(prefix, tenantID, deviceID, generic),
 	)
 
-	eventsBus.AddMiddleware(AddTimestamp)
+	if generic {
+		eventsBus.AddMiddleware(AddTimestamp)
+	}
 
 	return eventsBus
 }
@@ -120,8 +137,8 @@ func EventsBus(router *message.Router,
 func TelemetryBus(router *message.Router,
 	honoPub message.Publisher,
 	mosquittoSub message.Subscriber,
-	tenantID string,
-	deviceID string,
+	tenantID, deviceID string,
+	generic bool,
 ) *message.Handler {
 	prefix := os.Getenv("TELEMETRY_TOPIC_PREFIX")
 
@@ -131,6 +148,6 @@ func TelemetryBus(router *message.Router,
 		mosquittoSub,
 		connector.TopicEmpty,
 		honoPub,
-		NewEventsHandler(prefix, tenantID, deviceID),
+		NewEventsHandler(prefix, tenantID, deviceID, generic),
 	)
 }

@@ -13,7 +13,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"syscall"
 
@@ -65,6 +64,8 @@ func (l *launcher) Run(
 
 	router := app.NewRouter(logger)
 
+	generic := settings.HubConnectionSettings.Generic()
+
 	cloudClient, err := config.CreateCloudConnection(settings.LocalConnection(), false, logger)
 	if err != nil {
 		return errors.Wrap(err, "cannot create mosquitto connection")
@@ -75,7 +76,10 @@ func (l *launcher) Run(
 		routing.SendStatus(routing.StatusConnectionError, l.statusPub, logger)
 		return errors.Wrap(err, "cannot create Hub connection")
 	}
-	l.manager.ForwardTo(honoClient)
+
+	if !generic {
+		l.manager.ForwardTo(honoClient)
+	}
 
 	paramsPub := conn.NewPublisher(l.localClient, conn.QosAtMostOnce, logger, nil)
 	paramsSub := conn.NewSubscriber(cloudClient, conn.QosAtMostOnce, false, logger, nil)
@@ -89,14 +93,23 @@ func (l *launcher) Run(
 	honoSub := config.NewHonoSub(logger, honoClient)
 
 	mosquittoSub := conn.NewSubscriber(cloudClient, conn.QosAtLeastOnce, false, logger, nil)
-	routing.CommandsResBus(router, honoPub, mosquittoSub, reqCache, settings.DeviceID)
 
-	routing.EventsBus(router, honoPub, mosquittoSub, settings.TenantID, settings.DeviceID)
-	routing.TelemetryBus(router, honoPub, mosquittoSub, settings.TenantID, settings.DeviceID)
+	routing.EventsBus(router,
+		honoPub, mosquittoSub,
+		settings.TenantID, settings.DeviceID, generic,
+	)
+	routing.TelemetryBus(router,
+		honoPub, mosquittoSub,
+		settings.TenantID, settings.DeviceID, generic,
+	)
 
+	routing.CommandsResBus(router,
+		honoPub, mosquittoSub, reqCache,
+		settings.TenantID, settings.DeviceID, generic,
+	)
 	routing.CommandsReqBus(router,
 		conn.NewPublisher(cloudClient, conn.QosAtLeastOnce, logger, nil),
-		honoSub, reqCache, settings.DeviceID,
+		honoSub, reqCache, settings.TenantID, settings.DeviceID, generic,
 	)
 
 	shutdown := func(r *message.Router) error {
@@ -150,9 +163,6 @@ func (l *launcher) Run(
 				return
 			}
 			defer honoClient.Disconnect()
-
-			//Add subscription for the gateway commands
-			l.manager.Add(fmt.Sprintf("command//%s/req/#", settings.DeviceID))
 
 			<-l.signals
 

@@ -265,10 +265,7 @@ func parseLogMessageNoticeLevel(topic, message string) *LogMessage {
 }
 
 func (h *LogHandler) filterTopic(topic string) bool {
-	if strings.HasPrefix(topic, "command//+/") {
-		return true
-	}
-	return false
+	return strings.Contains(topic, "/+/")
 }
 
 func (h *LogHandler) addSubscription(logMessage *LogMessage) {

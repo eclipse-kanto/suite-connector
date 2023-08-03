@@ -30,6 +30,9 @@ import (
 )
 
 const (
+	// TopicCommandRequest defines command request topic
+	TopicCommandRequest = "command//+/req/#"
+
 	// TopicCommandResponse defines command responses topic
 	TopicCommandResponse = "command//+/res/#,c//+/s/#"
 
@@ -38,14 +41,23 @@ const (
 
 type cmdRequestHandler struct {
 	reqCache *cache.Cache
+
 	deviceID string
+	tenantID string
+
+	generic bool
 }
 
 // NewCommandRequestHandler returns the commands handler function.
-func NewCommandRequestHandler(reqCache *cache.Cache, deviceID string) message.HandlerFunc {
+func NewCommandRequestHandler(reqCache *cache.Cache,
+	tenantID, deviceID string,
+	generic bool,
+) message.HandlerFunc {
 	h := &cmdRequestHandler{
-		deviceID: deviceID,
 		reqCache: reqCache,
+		tenantID: tenantID,
+		deviceID: deviceID,
+		generic:  generic,
 	}
 
 	return h.HandleRequest
@@ -54,7 +66,6 @@ func NewCommandRequestHandler(reqCache *cache.Cache, deviceID string) message.Ha
 // HandleRequest handles a published command.
 func (h *cmdRequestHandler) HandleRequest(msg *message.Message) ([]*message.Message, error) {
 	if topic, ok := connector.TopicFromCtx(msg.Context()); ok {
-
 		command := protocol.Envelope{Headers: protocol.NewHeaders()}
 		if err := json.Unmarshal(msg.Payload, &command); err != nil {
 			return nil, errors.Wrap(err, msgInvalidCloudCommand)
@@ -68,32 +79,26 @@ func (h *cmdRequestHandler) HandleRequest(msg *message.Message) ([]*message.Mess
 			}
 		}
 
-		_, deviceID, suffix := util.ParseCmdTopic(topic)
+		if h.generic {
+			//Remove special /tenant/gatewayID/stripped(deviceID) prefix
+			fixed, err := fixCommand(topic)
+			if err != nil {
+				return nil, err
+			}
+			topic = fixed
+
+			msg.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
+		}
 
 		result := make([]*message.Message, 0)
 
-		//Send the message to command//<deviceId>/req/<suffix>
 		result = append(result, msg)
 
-		//Send the message to c//<deviceId>/q/<suffix>
-		topic = fmt.Sprintf("c//%s/q/%s", deviceID, suffix)
+		_, prefix, suffix := util.ParseCmdTopic(topic)
+		topic = fmt.Sprintf("c//%s/q/%s", prefix, suffix)
 		short := message.NewMessage(msg.UUID, msg.Payload)
 		short.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
 		result = append(result, short)
-
-		if deviceID == h.deviceID {
-			//Send the message to command///req/<suffix>
-			topic = fmt.Sprintf("command///req/%s", suffix)
-			longNoID := message.NewMessage(msg.UUID, msg.Payload)
-			longNoID.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
-			result = append(result, longNoID)
-
-			//Send the message to c///q/<suffix>
-			topic = fmt.Sprintf("c///q/%s", suffix)
-			shortNoID := message.NewMessage(msg.UUID, msg.Payload)
-			shortNoID.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
-			result = append(result, shortNoID)
-		}
 
 		return result, nil
 	}
@@ -106,31 +111,49 @@ func CommandsReqBus(router *message.Router,
 	mosquittoPub message.Publisher,
 	honoSub message.Subscriber,
 	reqCache *cache.Cache,
-	deviceID string,
+	tenantID, deviceID string,
+	generic bool,
 ) *message.Handler {
+
+	topic := TopicCommandRequest
+	if generic {
+		topic = fmt.Sprintf("command/%s/%s/+/req/#", tenantID, deviceID)
+	}
+
 	//Hono -> Message bus -> Mosquitto Broker -> Gateway
 	return router.AddHandler("commands_request_bus",
-		connector.TopicEmpty,
+		topic,
 		honoSub,
 		connector.TopicEmpty,
 		mosquittoPub,
-		NewCommandRequestHandler(reqCache, deviceID),
+		NewCommandRequestHandler(reqCache, tenantID, deviceID, generic),
 	)
 }
 
 type cmdResponseHandler struct {
 	reqCache *cache.Cache
 
-	prefix   string
+	prefix string
+
 	deviceID string
+	tenantID string
+
+	generic bool
 }
 
 // NewCommandResponseHandler returns the responses handler function.
-func NewCommandResponseHandler(reqCache *cache.Cache, prefix string, deviceID string) message.HandlerFunc {
+func NewCommandResponseHandler(
+	reqCache *cache.Cache,
+	prefix string,
+	tenantID, deviceID string,
+	generic bool,
+) message.HandlerFunc {
 	h := &cmdResponseHandler{
-		prefix:   prefix,
-		deviceID: deviceID,
 		reqCache: reqCache,
+		prefix:   prefix,
+		tenantID: tenantID,
+		deviceID: deviceID,
+		generic:  generic,
 	}
 
 	return h.HandleResponse
@@ -147,29 +170,36 @@ func (h *cmdResponseHandler) HandleResponse(msg *message.Message) ([]*message.Me
 
 		correlationID := command.Headers.CorrelationID()
 		if h.reqCache.Remove(correlationID) {
-			cmdType, deviceID, suffix := util.ParseCmdTopic(topic)
+			_, deviceID, suffix := util.ParseCmdTopic(topic)
 
 			var buff strings.Builder
-			buff.Grow(64)
+			buff.Grow(256)
 
-			if len(h.prefix) > 0 {
+			if h.generic && len(h.prefix) > 0 {
 				buff.WriteString(h.prefix)
 				buff.WriteString("/")
 			}
 
-			if len(deviceID) == 0 {
-				buff.WriteString("command//")
+			buff.WriteString("command/")
+
+			if h.generic {
+				//Add special /tenant/gatewayID/stripped(deviceID) prefix
+				buff.WriteString(h.tenantID)
+				buff.WriteString("/")
 				buff.WriteString(h.deviceID)
-				buff.WriteString("/res/")
-				buff.WriteString(suffix)
-			} else if cmdType == "s" {
-				buff.WriteString("command//")
-				buff.WriteString(deviceID)
-				buff.WriteString("/res/")
-				buff.WriteString(suffix)
+				buff.WriteString("/")
+				stripped, err := stripGatewayID(h.deviceID, deviceID)
+				if err != nil {
+					return nil, err
+				}
+				buff.WriteString(stripped)
 			} else {
-				buff.WriteString(topic)
+				buff.WriteString("/")
+				buff.WriteString(deviceID)
 			}
+
+			buff.WriteString("/res/")
+			buff.WriteString(suffix)
 
 			msg.SetContext(connector.SetTopicToCtx(msg.Context(), buff.String()))
 
@@ -187,7 +217,8 @@ func CommandsResBus(router *message.Router,
 	honoPub message.Publisher,
 	mosquittoSub message.Subscriber,
 	reqCache *cache.Cache,
-	deviceID string,
+	tenantID, deviceID string,
+	generic bool,
 ) *message.Handler {
 	prefix := os.Getenv("COMMAND_RESPONSE_TOPIC_PREFIX")
 
@@ -197,6 +228,6 @@ func CommandsResBus(router *message.Router,
 		mosquittoSub,
 		connector.TopicEmpty,
 		honoPub,
-		NewCommandResponseHandler(reqCache, prefix, deviceID),
+		NewCommandResponseHandler(reqCache, prefix, tenantID, deviceID, generic),
 	)
 }

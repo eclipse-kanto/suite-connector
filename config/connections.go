@@ -98,6 +98,15 @@ func (c *HubConnectionSettings) Validate() error {
 	return nil
 }
 
+// Generic returns true if the remote broker is generic MQTT
+func (c *HubConnectionSettings) Generic() bool {
+	u, err := url.Parse(c.Address)
+	if err != nil {
+		return false
+	}
+	return strings.HasSuffix(u.Hostname(), "amazonaws.com")
+}
+
 // LocalConnectionSettings contains the local connection settings.
 type LocalConnectionSettings struct {
 	LocalAddress  string `json:"localAddress"`
