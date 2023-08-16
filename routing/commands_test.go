@@ -366,7 +366,7 @@ func TestCommandRequestTopicGeneric(t *testing.T) {
 	commandReqHandler := routing.NewCommandRequestHandler(reqCache, "testTenant", "testGateway", true)
 	messages, err := commandReqHandler(msg)
 	require.NoError(t, err)
-	assert.Equal(t, len(messages), 2)
+	assert.Equal(t, 2, len(messages))
 
 	actualTopic, ok := connector.TopicFromCtx(messages[0].Context())
 	assert.True(t, ok)
@@ -395,7 +395,7 @@ func TestCommandResponseTopicGeneric(t *testing.T) {
 	commandReqHandler := routing.NewCommandResponseHandler(reqCache, "prefix", "testTenant", "testGateway", true)
 	messages, err := commandReqHandler(msg)
 	require.NoError(t, err)
-	assert.Equal(t, len(messages), 1)
+	assert.Equal(t, 1, len(messages))
 
 	actualTopic, ok := connector.TopicFromCtx(messages[0].Context())
 	assert.True(t, ok)

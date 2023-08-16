@@ -157,7 +157,7 @@ func TestEventTopicGeneric(t *testing.T) {
 	eventsHandler := routing.NewEventsHandler("prefix", "testTenant", "testGateway", true)
 	messages, err := eventsHandler(msg)
 	require.NoError(t, err)
-	assert.Equal(t, len(messages), 1)
+	assert.Equal(t, 1, len(messages))
 
 	actualTopic, ok := connector.TopicFromCtx(messages[0].Context())
 	assert.True(t, ok)
