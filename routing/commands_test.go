@@ -118,6 +118,12 @@ func (s *CommandHandlersTestSuite) TestHandleRequest() {
 	}
 }
 
+func (s *CommandHandlersTestSuite) TestHandleRequestInvalidPayload() {
+	msgInvalidPayload := message.NewMessage(msgUid, []byte("invalid"))
+	msgInvalidPayload.SetContext(connector.SetTopicToCtx(context.Background(), "t"))
+	assertMessageInvalid(s, s.requestHandler, msgInvalidPayload)
+}
+
 func (s *CommandHandlersTestSuite) TestHandleRequestNoTopic() {
 	assertMessageInvalid(s, s.requestHandler, message.NewMessage(msgUid, []byte{}))
 }
