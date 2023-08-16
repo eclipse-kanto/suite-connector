@@ -95,9 +95,9 @@ func (h *cmdRequestHandler) HandleRequest(msg *message.Message) ([]*message.Mess
 
 		result = append(result, msg)
 
-		_, deviceId, suffix := util.ParseCmdTopic(topic)
+		_, deviceID, suffix := util.ParseCmdTopic(topic)
 		//Send the message to c//<deviceId>/q/<suffix>
-		topic = fmt.Sprintf("c//%s/q/%s", deviceId, suffix)
+		topic = fmt.Sprintf("c//%s/q/%s", deviceID, suffix)
 		short := message.NewMessage(msg.UUID, msg.Payload)
 		short.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
 		result = append(result, short)
