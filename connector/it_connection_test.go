@@ -25,6 +25,7 @@ import (
 
 func TestCredentialsProvider(t *testing.T) {
 	config, err := testutil.NewLocalConfig()
+	require.NoError(t, err)
 
 	username := config.Credentials.UserName
 	pass := config.Credentials.Password

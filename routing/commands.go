@@ -90,11 +90,13 @@ func (h *cmdRequestHandler) HandleRequest(msg *message.Message) ([]*message.Mess
 			msg.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
 		}
 
+		//Send the message to command//<deviceId>/req/<suffix>
 		result := make([]*message.Message, 0)
 
 		result = append(result, msg)
 
 		_, prefix, suffix := util.ParseCmdTopic(topic)
+		//Send the message to c//<deviceId>/q/<suffix>
 		topic = fmt.Sprintf("c//%s/q/%s", prefix, suffix)
 		short := message.NewMessage(msg.UUID, msg.Payload)
 		short.SetContext(connector.SetTopicToCtx(msg.Context(), topic))
@@ -117,6 +119,7 @@ func CommandsReqBus(router *message.Router,
 
 	topic := TopicCommandRequest
 	if generic {
+		//Subscription format must be command/tenantID/gatewayID/+/req/#
 		topic = fmt.Sprintf("command/%s/%s/+/req/#", tenantID, deviceID)
 	}
 

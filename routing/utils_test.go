@@ -55,6 +55,6 @@ func TestStripGatwayID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "testDevice", deviceID)
 
-	deviceID, err = stripGatewayID("testGateway", "ns:testGateway:testDevice")
+	_, err = stripGatewayID("testGateway", "ns:testGateway:testDevice")
 	assert.Error(t, err)
 }

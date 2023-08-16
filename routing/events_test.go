@@ -27,10 +27,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const (
-	sinkTopic = "sink/"
-)
-
 type EventHandlersTestSuite struct {
 	suite.Suite
 
