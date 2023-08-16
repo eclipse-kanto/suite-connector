@@ -38,7 +38,17 @@ func TestFixCommandEmptyDevice(t *testing.T) {
 	assert.Equal(t, "command///req//toggle", topic)
 }
 
-func TestStripGatwayID(t *testing.T) {
+func TestStripGatewayID(t *testing.T) {
+	deviceID, err := stripGatewayID("ns:testGateway", "ns:testGateway:a")
+	assert.NoError(t, err)
+	assert.Equal(t, "a", deviceID)
+
+	deviceID, err = stripGatewayID("ns:testGateway", "ns:testGateway:testDevice")
+	assert.NoError(t, err)
+	assert.Equal(t, "testDevice", deviceID)
+}
+
+func TestStripGatewayIDEmptyDevice(t *testing.T) {
 	deviceID, err := stripGatewayID("ns:testGateway", "ns:testGateway")
 	assert.NoError(t, err)
 	assert.Equal(t, "", deviceID)
@@ -46,15 +56,9 @@ func TestStripGatwayID(t *testing.T) {
 	deviceID, err = stripGatewayID("ns:testGateway", "ns:testGateway:")
 	assert.NoError(t, err)
 	assert.Equal(t, "", deviceID)
+}
 
-	deviceID, err = stripGatewayID("ns:testGateway", "ns:testGateway:a")
-	assert.NoError(t, err)
-	assert.Equal(t, "a", deviceID)
-
-	deviceID, err = stripGatewayID("ns:testGateway", "ns:testGateway:testDevice")
-	assert.NoError(t, err)
-	assert.Equal(t, "testDevice", deviceID)
-
-	_, err = stripGatewayID("testGateway", "ns:testGateway:testDevice")
+func TestStripGatewayIDError(t *testing.T) {
+	_, err := stripGatewayID("testGateway", "ns:testGateway:testDevice")
 	assert.Error(t, err)
 }
