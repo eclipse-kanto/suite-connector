@@ -165,5 +165,6 @@ func TestServiceRouter(t *testing.T) {
 	manager := connector.NewSubscriptionManager()
 	r := routing.CreateServiceRouter(client, manager, logger)
 
+	<-r.Running()
 	assert.NoError(t, r.Close())
 }
