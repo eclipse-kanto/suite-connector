@@ -50,7 +50,7 @@ ThreeDotsLabs/watermill (1.1.1)
 
 * License: MIT License
 * Project: https://github.com/ThreeDotsLabs/watermill
-* Source:  https://github.com/ThreeDotsLabs/watermill/releases/tag/v1.1.1
+* Source:  https://github.com/ThreeDotsLabs/watermill/releases/tag/v1.3.2
 
 cenkalti/backoff (3.0.0)
 
