@@ -126,7 +126,9 @@ func Run(
 	logger.Debugf("Provisioning file watcher created for %s", settings.Provisioning())
 
 	manager := conn.NewSubscriptionManager()
+
 	router := routing.CreateServiceRouter(localClient, manager, logger)
+	<-router.Running()
 	defer router.Close()
 
 	defer localClient.Disconnect()

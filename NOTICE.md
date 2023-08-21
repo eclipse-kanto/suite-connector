@@ -46,17 +46,17 @@ Jeffail/gabs (2.6.0)
 * Project: https://github.com/Jeffail/gabs
 * Source:  https://github.com/Jeffail/gabs/releases/tag/v2.6.0
 
-ThreeDotsLabs/watermill (1.1.1)
+ThreeDotsLabs/watermill (1.3.2)
 
 * License: MIT License
 * Project: https://github.com/ThreeDotsLabs/watermill
-* Source:  https://github.com/ThreeDotsLabs/watermill/releases/tag/v1.1.1
+* Source:  https://github.com/ThreeDotsLabs/watermill/releases/tag/v1.3.2
 
-cenkalti/backoff (3.0.0)
+cenkalti/backoff (3.2.2)
 
 * License: MIT License
 * Project: https://github.com/cenkalti/backoff
-* Source:  https://github.com/cenkalti/backoff/releases/tag/v3.0.0
+* Source:  https://github.com/cenkalti/backoff/releases/tag/v3.2.2
 
 tidwall/sjson (v1.2.5)
 
@@ -112,23 +112,23 @@ gorilla/websocket (1.4.2)
 * Project: https://github.com/gorilla/websocket
 * Source:  https://github.com/gorilla/websocket/releases/tag/v1.4.2
 
-hashicorp/go-multierror (1.0.0)
+hashicorp/go-multierror (1.1.1)
 
 * License: Mozilla Public License 2.0
 * Project: https://github.com/hashicorp/go-multierror
-* Source:  https://github.com/hashicorp/go-multierror/releases/tag/v1.0.0
+* Source:  https://github.com/hashicorp/go-multierror/releases/tag/v1.1.1
 
-hashicorp/errwrap (1.0.0)
+hashicorp/errwrap (1.1.0)
 
 * License: Mozilla Public License 2.0
 * Project: https://github.com/hashicorp/errwrap
-* Source:  https://github.com/hashicorp/errwrap/releases/tag/v1.0.0
+* Source:  https://github.com/hashicorp/errwrap/releases/tag/v1.1.0
 
-lithammer/shortuuid (3.0.4)
+lithammer/shortuuid (3.0.7)
 
 * License: MIT License
 * Project: https://github.com/lithammer/shortuuid
-* Source:  https://github.com/lithammer/shortuuid/releases/tag/v3.0.4
+* Source:  https://github.com/lithammer/shortuuid/releases/tag/v3.0.7
 
 oklog/ulid (1.3.1)
 
