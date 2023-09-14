@@ -103,6 +103,8 @@ func AddHub(f *flag.FlagSet, settings, def *config.HubConnectionSettings) {
 	f.StringVar(&settings.Username, "username", def.Username, "Hub endpoint username")
 	f.StringVar(&settings.ClientID, "clientId", def.ClientID, "Hub client `ID`")
 
+	f.BoolVar(&settings.Generic, "generic", def.Generic, "Use modified Hub topics for cloud access")
+
 	AddTLS(f, &settings.TLSSettings, &def.TLSSettings)
 }
 

@@ -69,6 +69,8 @@ type HubConnectionSettings struct {
 	ClientID string `json:"clientId"`
 	AuthID   string `json:"authId"`
 
+	Generic bool `json:"generic"`
+
 	UseCertificate          bool `json:"-"`
 	AutoProvisioningEnabled bool `json:"-"`
 
@@ -98,8 +100,8 @@ func (c *HubConnectionSettings) Validate() error {
 	return nil
 }
 
-// Generic returns true if the remote broker is generic MQTT
-func (c *HubConnectionSettings) Generic() bool {
+// AWS returns true if the remote broker is AWS IoT Core
+func (c *HubConnectionSettings) AWS() bool {
 	u, err := url.Parse(c.Address)
 	if err != nil {
 		return false

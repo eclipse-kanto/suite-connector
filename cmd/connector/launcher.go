@@ -64,7 +64,7 @@ func (l *launcher) Run(
 
 	router := app.NewRouter(logger)
 
-	generic := settings.HubConnectionSettings.Generic()
+	generic := settings.HubConnectionSettings.AWS() || settings.HubConnectionSettings.Generic
 
 	cloudClient, err := config.CreateCloudConnection(settings.LocalConnection(), false, logger)
 	if err != nil {
