@@ -71,8 +71,8 @@ func TestEventsBus(t *testing.T) {
 		logger,
 	)
 
-	routing.EventsBus(router, sink, source, "testTenant", "testDevice")
-	routing.TelemetryBus(router, sink, source, "testTenant", "testDevice")
+	routing.EventsBus(router, sink, source, "testTenant", "testDevice", false)
+	routing.TelemetryBus(router, sink, source, "testTenant", "testDevice", false)
 
 	done := make(chan bool, 1)
 	go func() {

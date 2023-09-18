@@ -27,10 +27,6 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const (
-	sinkTopic = "sink/"
-)
-
 type EventHandlersTestSuite struct {
 	suite.Suite
 
@@ -149,21 +145,21 @@ func (s *EventHandlersTestSuite) TestHandleEvents() {
 
 func TestEventHandlersTestSuite(t *testing.T) {
 	s := &EventHandlersTestSuite{
-		eventsHandler: routing.NewEventsHandler("", "testTenant", "testDevice"),
+		eventsHandler: routing.NewEventsHandler("", "testTenant", "testDevice", false),
 	}
 	suite.Run(t, s)
 }
 
-func TestEventTopicPrefix(t *testing.T) {
+func TestEventTopicGeneric(t *testing.T) {
 	msg := message.NewMessage(watermill.NewShortUUID(), []byte("{}"))
-	msg.SetContext(connector.SetTopicToCtx(context.Background(), "event/testTenant/testAnotherDevice/testing"))
+	msg.SetContext(connector.SetTopicToCtx(context.Background(), "event/testTenant/testGateway:testDevice/testing"))
 
-	eventsHandler := routing.NewEventsHandler("prefix", "testTenant", "testDevice")
+	eventsHandler := routing.NewEventsHandler("prefix", "testTenant", "testGateway", true)
 	messages, err := eventsHandler(msg)
 	require.NoError(t, err)
-	assert.Equal(t, len(messages), 1)
+	assert.Equal(t, 1, len(messages))
 
 	actualTopic, ok := connector.TopicFromCtx(messages[0].Context())
 	assert.True(t, ok)
-	assert.Equal(t, "prefix/event/testTenant/testAnotherDevice/testing", actualTopic)
+	assert.Equal(t, "prefix/event/testTenant/testGateway/testDevice/testing", actualTopic)
 }

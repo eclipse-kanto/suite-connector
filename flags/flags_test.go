@@ -52,6 +52,7 @@ func TestFlagsMappings(t *testing.T) {
 		"-password=E",
 		"-username=T",
 		"-clientId=F",
+		"-generic=true",
 		"-localAddress=tcp://localhost:1883",
 		"-localUsername=G",
 		"-localPassword=H",
@@ -85,6 +86,7 @@ func TestFlagsMappings(t *testing.T) {
 	assert.Equal(t, "E", cmd.Password)
 	assert.Equal(t, "T", cmd.Username)
 	assert.Equal(t, "F", cmd.ClientID)
+	assert.True(t, cmd.Generic)
 	assert.Equal(t, "tcp://localhost:1883", cmd.LocalAddress)
 	assert.Equal(t, "G", cmd.LocalUsername)
 	assert.Equal(t, "H", cmd.LocalPassword)
