@@ -166,11 +166,11 @@ google/go-tpm (0.3.2)
 * Project: https://github.com/google/go-tpm
 * Source:  https://github.com/google/go-tpm/releases/tag/v0.3.2
 
-golang.org/x/net (0.7.0)
+golang.org/x/net (0.17.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/net
-* Source:  https://github.com/golang/net/releases/tag/v0.7.0
+* Source:  https://github.com/golang/net/releases/tag/v0.17.0
 
 golang.org/x/sync (v0.0.0-20220722155255-886fb9371eb4)
 
@@ -178,11 +178,11 @@ golang.org/x/sync (v0.0.0-20220722155255-886fb9371eb4)
 * Project: https://github.com/golang/sync
 * Source:  https://github.com/golang/sync/tree/036812b2e83c0ddf193dd5a34e034151da389d09
 
-golang.org/x/sys (0.5.0)
+golang.org/x/sys (0.13.0)
 
 * License: BSD 3-Clause "New" or "Revised" License
 * Project: https://github.com/golang/sys
-* Source:  https://github.com/golang/sys/releases/tag/v0.5.0
+* Source:  https://github.com/golang/sys/releases/tag/v0.13.0
 
 golang.org/x/time (v0.0.0-20190308202827-9d24e82272b4)
 
