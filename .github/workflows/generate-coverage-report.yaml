@@ -1,7 +1,7 @@
 name: Create Coverage
 
-on: 
-  push:
+on: push
+#  push:
     # branches:
     # - main
 
