@@ -1,0 +1,14 @@
+name: Create Coverage
+
+on: 
+  push:
+     branches:
+     - main
+
+jobs:
+  generate-coverage-report:
+    uses: eclipse-kanto/kanto/.github/workflows/coverage-template.yaml@main
+    with: 
+      coverage-command: |
+        docker system prune -f
+        docker-compose -f ./docker/docker-compose-tests.yml up --build --no-color tests

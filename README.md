@@ -2,6 +2,8 @@
 
 # Eclipse Kanto - Suite Connector
 
+![Coverage](https://github.com/eclipse-kanto/suite-connector/wiki/coverage.svg)
+
 The suite connector is the main coordination center which forwards the local
 and remote messages. Messages processed by the suite connector will
 typically be related to telemetry data from the devices or command &
