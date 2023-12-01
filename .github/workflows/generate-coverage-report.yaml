@@ -1,14 +1,13 @@
 name: Create Coverage
 
-on: push
-#  push:
-    # branches:
-    # - main
+on: 
+  push:
+     branches:
+     - main
 
 jobs:
   generate-coverage-report:
-    # uses: eclipse-kanto/kanto/.github/workflows/coverage-template.yaml@main
-    uses: bosch-io/kanto/.github/workflows/coverage-template.yaml@748587d103cef89d7abca005428ad47fe6194ce6
+    uses: eclipse-kanto/kanto/.github/workflows/coverage-template.yaml@main
     with: 
       coverage-command: |
         docker system prune -f
