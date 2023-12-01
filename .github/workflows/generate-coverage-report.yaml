@@ -8,7 +8,7 @@ on: push
 jobs:
   generate-coverage-report:
     # uses: eclipse-kanto/kanto/.github/workflows/coverage-template.yaml@main
-    uses: .github/workflows/coverage-template.yaml@main
+    uses: ./.github/workflows/coverage-template.yaml@main
     with: 
       coverage-command: |
         docker system prune -f
