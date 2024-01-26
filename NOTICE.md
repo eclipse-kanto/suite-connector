@@ -160,11 +160,11 @@ imdario/mergo (0.3.12)
 * Project: https://github.com/imdario/mergo
 * Source:  https://github.com/imdario/mergo/releases/tag/0.3.12
 
-google/go-tpm (0.3.2)
+google/go-tpm (0.9.0)
 
 * License: Apache License 2.0
 * Project: https://github.com/google/go-tpm
-* Source:  https://github.com/google/go-tpm/releases/tag/v0.3.2
+* Source:  https://github.com/google/go-tpm/releases/tag/v0.9.0
 
 golang.org/x/net (0.17.0)
 
